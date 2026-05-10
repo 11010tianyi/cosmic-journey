@@ -27,4 +27,4 @@ python3 -m http.server 8080
 ## 资源说明
 
 - `p5.min.js` 为本地备份；失败时会从 jsDelivr 加载 p5。
-- 场景卡片引用的 `space_scene_*.jpg` 若未放入本目录，图片会 404，可自行补图。
+- 场景卡片使用本目录下的 `space_scene_*.jpg`；可选本地氛围乐 `audio/cosmic_ambient.mp3`。
