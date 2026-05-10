@@ -1,0 +1,2508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>宇宙尺度之旅 — 从银河系到你</title>
+    <script src="p5.min.js?v=5" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/p5@1.7.0/lib/p5.min.js'"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Noto+Sans+SC:wght@300;400;500;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cosmos-black: #050510;
+            --cosmos-deep: #0a0a2e;
+            --nebula-purple: #2d1b69;
+            --star-blue: #4fc3f7;
+            --star-gold: #ffd54f;
+            --earth-green: #66bb6a;
+            --earth-blue: #42a5f5;
+            --text-primary: #e8e6f0;
+            --text-secondary: #9e99b8;
+            --accent-cyan: #00e5ff;
+            --accent-orange: #ff6d00;
+            --glass-bg: rgba(10, 10, 46, 0.75);
+            --glass-border: rgba(79, 195, 247, 0.2);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--cosmos-black);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* 画布 + 科普条整体上移，避免顶栏与主画面挤在一起 */
+        .cosmic-stage {
+            position: fixed;
+            left: 0;
+            width: 100vw;
+            top: -52px;
+            height: calc(100vh + 52px);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .cosmic-stage #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: auto;
+        }
+
+        .cosmic-stage #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Top HUD */
+        .hud-top {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 10;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+
+        .scale-indicator {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px 24px;
+            pointer-events: auto;
+            min-width: 320px;
+        }
+
+        .scale-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 11px;
+            color: var(--accent-cyan);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        .scale-name {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .scale-distance {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 13px;
+            color: var(--star-gold);
+            letter-spacing: 1px;
+        }
+
+        .scale-geo {
+            font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+            font-size: 11px;
+            color: var(--accent-cyan);
+            letter-spacing: 0.5px;
+            margin-top: 8px;
+            line-height: 1.45;
+            max-width: 300px;
+            opacity: 0.92;
+        }
+
+        /* 顶部居中：当前尺度科普（无底框，靠字重与阴影压在星场上） */
+        .science-hint {
+            position: absolute;
+            top: 156px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            max-width: min(88vw, 620px);
+            padding: 10px 18px;
+            text-align: center;
+            font-family: 'Noto Serif SC', 'Crimson Text', 'Songti SC', Georgia, serif;
+            font-size: 15px;
+            font-weight: 500;
+            line-height: 1.75;
+            letter-spacing: 0.04em;
+            color: rgba(62, 76, 98, 0.96);
+            background: none;
+            border: none;
+            box-shadow: none;
+            pointer-events: none;
+            opacity: 0;
+            text-shadow:
+                0 0 22px rgba(5, 6, 18, 0.92),
+                0 0 40px rgba(5, 6, 18, 0.75),
+                0 2px 3px rgba(5, 6, 18, 0.55);
+        }
+
+        @media (max-width: 768px) {
+            .science-hint {
+                top: 138px;
+                font-size: 14px;
+                padding: 8px 12px;
+                letter-spacing: 0.03em;
+            }
+        }
+
+        .ctrl-btn.backdrop-off {
+            opacity: 0.65;
+            border-color: rgba(158, 153, 184, 0.35);
+            color: var(--text-secondary);
+        }
+
+        .scale-bar-container {
+            margin-top: 10px;
+            height: 3px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .scale-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--star-gold));
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        /* Philosophy Panel */
+        .philosophy-panel {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            z-index: 10;
+            max-width: 420px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            padding-top: 28px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: auto;
+        }
+
+        .philosophy-panel.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .philosophy-panel.panel-dismissed {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden;
+            transform: translateY(16px);
+        }
+
+        .corner-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            margin: 0;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(5, 8, 24, 0.55);
+            color: rgba(200, 205, 230, 0.85);
+            font-size: 17px;
+            line-height: 1;
+            cursor: pointer;
+            z-index: 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, sans-serif;
+            transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        .corner-close-btn:hover {
+            color: var(--accent-cyan);
+            border-color: rgba(0, 229, 255, 0.45);
+            background: rgba(0, 229, 255, 0.08);
+        }
+
+        .philosophy-panel .corner-close-btn {
+            top: 8px;
+            right: 8px;
+        }
+
+        .philosophy-tag {
+            display: inline-block;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: var(--accent-cyan);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: rgba(0, 229, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 20px;
+            margin-bottom: 12px;
+        }
+
+        .philosophy-quote {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 16px;
+            line-height: 1.8;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+
+        .philosophy-author {
+            font-size: 13px;
+            color: var(--star-gold);
+            text-align: right;
+        }
+
+        .philosophy-knowledge {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .knowledge-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: var(--accent-orange);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .knowledge-text {
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+
+        /* Right Controls */
+        .controls-right {
+            position: fixed;
+            right: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .ctrl-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            color: var(--text-primary);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .ctrl-btn:hover {
+            background: rgba(0, 229, 255, 0.15);
+            border-color: var(--accent-cyan);
+            transform: scale(1.08);
+        }
+
+        .ctrl-btn:active { transform: scale(0.95); }
+
+        .ctrl-btn-compact {
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0;
+            line-height: 1.1;
+            padding: 4px 2px;
+        }
+
+        .ctrl-btn.active {
+            background: rgba(0, 229, 255, 0.2);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        /* Scale Slider */
+        .scale-slider-container {
+            position: fixed;
+            right: 90px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .scale-slider-stack {
+            position: relative;
+            width: 32px;
+            height: 420px;
+        }
+
+        .scale-slider-track {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 100%;
+            background: rgba(255,255,255,0.08);
+            border-radius: 2px;
+            cursor: pointer;
+            z-index: 1;
+        }
+
+        .slider-nodes {
+            position: absolute;
+            inset: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .slider-node {
+            position: absolute;
+            left: 50%;
+            width: 11px;
+            height: 11px;
+            margin-left: -5.5px;
+            margin-top: -5.5px;
+            border-radius: 50%;
+            background: rgba(158, 153, 184, 0.55);
+            border: 2px solid var(--cosmos-black);
+            box-sizing: border-box;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 4;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .slider-node:hover {
+            transform: scale(1.2);
+            background: rgba(0, 229, 255, 0.45);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
+        }
+
+        .slider-node:active {
+            transform: scale(1.05);
+        }
+
+        .scale-slider-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            border: 3px solid var(--cosmos-black);
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+            transition: box-shadow 0.2s;
+            z-index: 5;
+        }
+
+        .scale-slider-thumb:hover {
+            box-shadow: 0 0 25px rgba(0, 229, 255, 0.8);
+        }
+
+        .scale-labels {
+            position: absolute;
+            right: 20px;
+            top: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .scale-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 9px;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        /* Scene Gallery（外层含关闭钮） */
+        .scene-gallery-outer {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            pointer-events: none;
+        }
+
+        .scene-gallery-outer.panel-dismissed {
+            opacity: 0 !important;
+            pointer-events: none !important;
+            visibility: hidden;
+            transform: translateY(16px);
+        }
+
+        .scene-gallery-outer .corner-close-btn {
+            position: static;
+            pointer-events: auto;
+        }
+
+        .scene-gallery {
+            display: flex;
+            gap: 12px;
+            pointer-events: auto;
+        }
+
+        .scene-card {
+            width: 180px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .scene-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .scene-card:hover {
+            transform: translateY(-5px) scale(1.03);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 10px 30px rgba(0, 229, 255, 0.2);
+        }
+
+        .scene-card img {
+            width: 100%;
+            height: 100px;
+            object-fit: cover;
+        }
+
+        .scene-card-info {
+            padding: 10px 12px;
+        }
+
+        .scene-card-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 3px;
+        }
+
+        .scene-card-year {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 10px;
+            color: var(--accent-cyan);
+        }
+
+        /* Intro Overlay */
+        .intro-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 100;
+            background: var(--cosmos-black);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 1.5s ease;
+        }
+
+        .intro-overlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .intro-title {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .intro-subtitle {
+            font-size: 16px;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            text-align: center;
+            line-height: 1.8;
+        }
+
+        .intro-start-btn {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 14px;
+            color: var(--accent-cyan);
+            background: transparent;
+            border: 1px solid var(--accent-cyan);
+            padding: 14px 40px;
+            border-radius: 30px;
+            cursor: pointer;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            transition: all 0.3s ease;
+        }
+
+        .intro-start-btn:hover {
+            background: rgba(0, 229, 255, 0.1);
+            box-shadow: 0 0 30px rgba(0, 229, 255, 0.3);
+        }
+
+        .intro-stars {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        /* Scene Modal */
+        .scene-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 50;
+            background: rgba(5, 5, 16, 0.9);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .scene-modal.active { display: flex; }
+
+        .scene-modal img {
+            max-width: 80vw;
+            max-height: 70vh;
+            border-radius: 16px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .scene-modal-caption {
+            position: absolute;
+            bottom: 60px;
+            text-align: center;
+        }
+
+        .scene-modal-caption h3 {
+            font-family: 'Noto Serif SC', serif;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .scene-modal-caption p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            max-width: 500px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .philosophy-panel { max-width: calc(100vw - 60px); left: 15px; bottom: 15px; padding: 16px; }
+            .scene-gallery-outer { right: 15px; bottom: 15px; }
+            .scene-gallery { flex-direction: column; }
+            .scene-card { width: 140px; }
+            .scale-slider-container { display: none; }
+            .controls-right { right: 15px; }
+            .hud-top { padding: 15px; }
+            .scale-indicator { min-width: auto; padding: 12px 16px; }
+            .scale-name { font-size: 18px; }
+            .intro-title { font-size: 32px; padding: 0 20px; }
+            .intro-subtitle { font-size: 14px; padding: 0 30px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Intro Overlay -->
+<div class="intro-overlay" id="introOverlay">
+    <div class="intro-stars" id="introStars"></div>
+    <div class="intro-title">宇宙尺度之旅</div>
+    <div class="intro-subtitle">
+        从银河系的旋臂出发，穿越星际尘埃，掠过太阳系，<br>
+        降落在你此刻所在的位置——<br>
+        一场跨越 10²¹ 米的旅程
+    </div>
+    <button class="intro-start-btn" onclick="startJourney()">开始旅程</button>
+</div>
+
+<!-- 深空氛围乐：不在此写 crossorigin，避免远程 MP3 无 CORS 头导致整段无法解码；src 由脚本在用户手势内赋值 -->
+<audio id="ambientAudio" loop playsinline preload="auto"></audio>
+
+<!-- 主画布与科普条整体上移 -->
+<div class="cosmic-stage" id="cosmicStage">
+    <div id="canvas-container"></div>
+    <div class="science-hint" id="scienceHint" aria-live="polite"></div>
+</div>
+
+<!-- Top HUD -->
+<div class="hud-top" id="hudTop" style="opacity:0; transition: opacity 0.5s;">
+    <div class="scale-indicator">
+        <div class="scale-title">当前尺度</div>
+        <div class="scale-name" id="scaleName">银河系</div>
+        <div class="scale-distance" id="scaleDistance">~100,000 光年</div>
+        <div class="scale-geo" id="geoCoords" style="display: none;"></div>
+        <div class="scale-bar-container">
+            <div class="scale-bar-fill" id="scaleBar" style="width: 0%"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Philosophy Panel -->
+<div class="philosophy-panel" id="philosophyPanel">
+    <button type="button" class="corner-close-btn" onclick="closePhilosophyPanel(event)" title="关闭此面板" aria-label="关闭哲学与知识面板">×</button>
+    <div class="philosophy-tag" id="philoTag">太空哲学</div>
+    <div class="philosophy-quote" id="philoQuote">"我们都是星尘。"</div>
+    <div class="philosophy-author" id="philoAuthor">—— 卡尔·萨根</div>
+    <div class="philosophy-knowledge">
+        <div class="knowledge-label">宇宙知识</div>
+        <div class="knowledge-text" id="knowledgeText">可观测宇宙的直径约为930亿光年。</div>
+    </div>
+</div>
+
+<!-- Right Controls -->
+<div class="controls-right" id="controlsRight" style="opacity:0; transition: opacity 0.5s;">
+    <button class="ctrl-btn" onclick="zoomIn()" title="放大">+</button>
+    <button class="ctrl-btn" onclick="zoomOut()" title="缩小">−</button>
+    <button class="ctrl-btn" onclick="toggleAutoPlay()" id="autoPlayBtn" title="自动播放">▶</button>
+    <button class="ctrl-btn" onclick="resetJourney()" title="重置">⟲</button>
+    <button class="ctrl-btn" onclick="cycleBackdropMode()" id="physBackdropBtn" title="背景：艺术星场（点击切换：物理 / 全关）" aria-pressed="false" style="font-size:13px;font-weight:600;">物</button>
+    <button class="ctrl-btn active" type="button" onclick="toggleAmbientMusic()" id="ambientToggleBtn" title="关闭氛围乐（Kevin MacLeod · Ghostpocalypse 6 · CC-BY · incompetech.com）" aria-pressed="true" style="font-size:14px;font-weight:600;">乐</button>
+</div>
+
+<!-- Scale Slider -->
+<div class="scale-slider-container" id="scaleSlider" style="opacity:0; transition: opacity 0.5s;">
+    <div class="scale-slider-stack" id="sliderStack">
+        <div class="scale-slider-track" id="sliderTrack"></div>
+        <div class="slider-nodes" id="sliderNodes"></div>
+        <div class="scale-slider-thumb" id="sliderThumb"></div>
+    </div>
+    <div class="scale-labels">
+        <div class="scale-label">∞ 宇宙</div>
+        <div class="scale-label">银河系</div>
+        <div class="scale-label">太阳系</div>
+        <div class="scale-label">地球</div>
+        <div class="scale-label">你</div>
+    </div>
+</div>
+
+<!-- Scene Gallery -->
+<div class="scene-gallery-outer" id="sceneGallery" style="opacity:0; transition: opacity 0.5s;">
+    <button type="button" class="corner-close-btn" onclick="closeSceneGalleryPanel(event)" title="关闭场景卡片" aria-label="关闭场景精选">×</button>
+    <div class="scene-gallery">
+    <div class="scene-card" onclick="showScene(0)">
+        <img src="space_scene_2076_colony.jpg" alt="太空殖民地">
+        <div class="scene-card-info">
+            <div class="scene-card-title">轨道太空殖民地</div>
+            <div class="scene-card-year">2076 · 近地轨道</div>
+        </div>
+    </div>
+    <div class="scene-card" onclick="showScene(1)">
+        <img src="space_scene_2076_moon.jpg" alt="月球基地">
+        <div class="scene-card-info">
+            <div class="scene-card-title">月球永久基地</div>
+            <div class="scene-card-year">2076 · 月球表面</div>
+        </div>
+    </div>
+    <div class="scene-card" onclick="showScene(2)">
+        <img src="space_scene_2076_mars.jpg" alt="火星殖民地">
+        <div class="scene-card-info">
+            <div class="scene-card-title">火星殖民城市</div>
+            <div class="scene-card-year">2076 · 火星表面</div>
+        </div>
+    </div>
+    </div>
+</div>
+
+<!-- Scene Modal -->
+<div class="scene-modal" id="sceneModal" onclick="closeScene()">
+    <img id="sceneModalImg" src="" alt="太空场景">
+    <div class="scene-modal-caption">
+        <h3 id="sceneModalTitle"></h3>
+        <p id="sceneModalDesc"></p>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// COSMIC SCALE JOURNEY - 宇宙尺度之旅
+// ═══════════════════════════════════════════════════════════════
+
+// --- Scale Levels (log10 of size in meters) ---
+const SCALE_LEVELS = [
+    { name: "可观测宇宙", logSize: 27, distance: "~930亿光年", color: [20, 10, 60] },
+    { name: "超星系团", logSize: 25, distance: "~2.5亿光年", color: [30, 15, 70] },
+    { name: "银河系", logSize: 21, distance: "~10万光年", color: [40, 20, 80] },
+    { name: "太阳系邻域", logSize: 17, distance: "~10光年", color: [20, 30, 60] },
+    { name: "奥尔特云", logSize: 15.5, distance: "~1光年", color: [15, 25, 50] },
+    { name: "太阳系", logSize: 13, distance: "~90亿公里", color: [25, 35, 55] },
+    { name: "地球轨道", logSize: 11.5, distance: "~1.5亿公里", color: [20, 40, 70] },
+    { name: "地月系统", logSize: 9, distance: "~38.4万公里", color: [30, 50, 80] },
+    { name: "地球", logSize: 7, distance: "~12,742公里", color: [30, 80, 120] },
+    { name: "亚洲大陆", logSize: 6.3, distance: "~4,400公里", color: [40, 100, 80] },
+    { name: "城市", logSize: 4.5, distance: "~30公里", color: [60, 80, 100] },
+    { name: "你在这里", logSize: 1.5, distance: "~3米", color: [80, 120, 160] },
+];
+
+const LOG_SCALE_MAX = 27;
+const LOG_SCALE_MIN = 1.5;
+
+/** 每个尺度档一条短科普（渐入渐出展示） */
+const SCIENCE_HINTS = [
+    '可观测宇宙：以光速行进的信号所能抵达的最大范围；其边缘并非「墙」，而是我们观测与因果的视界。',
+    '超星系团：星系在引力作用下聚集成的巨型结构，跨度可达数亿光年；银河系属于拉尼亚凯亚超星系团的一部分。',
+    '银河系：棒旋星系，直径约十万光年；恒星绕银心公转，星际气体与尘埃在旋臂中孕育新一代恒星。',
+    '太阳系邻域：太阳周围数十光年内的恒星与星际介质；我们看到的「附近」恒星大多在数光年到十余光年之外。',
+    '奥尔特云：太阳系最外围的彗星储库，呈球壳状分布；长周期彗星往往由此被扰动进入内太阳系。',
+    '太阳系：八大行星沿椭圆轨道绕日公转；此示意未按比例，但可看出内行星致密、外行星稀疏的总体格局。',
+    '地球轨道：地球以约 1 天文单位的平均距离绕太阳公转；黄道面是行星轨道近似共面的参考平面。',
+    '地月系统：月球绕地球公转，同一面长期朝向地球（潮汐锁定）；地月距离约 38 万公里，本画面仅为示意。',
+    '地球：蓝色行星拥有液态水海洋与富含氮氧的大气；大陆与洋壳在板块运动中缓慢重塑地表。',
+    '亚洲大陆：世界面积最大的洲，地形从高原、沙漠到季风平原极为多样；人类城市与农业景观在此高度集中。',
+    '城市：道路网、建筑群与夜间灯光是人类活动的空间印记；尺度从公里到米，个体生活发生在街区与房间之中。',
+    '你在这里：在宇宙 log 尺度上，「几米」几乎与零无异；但意识与记忆使这一微小区域成为全部经验的中心。'
+];
+
+/** 科普条动画（毫秒，与帧率无关）；全暗间隔 6.4s */
+const SCI_CAP_FADE_IN_MS = 1500;
+const SCI_CAP_HOLD_MS = 5000;
+const SCI_CAP_FADE_OUT_MS = 1700;
+const SCI_CAP_GAP_MS = 6400;
+let scienceCaptionLevel = -1;
+let scienceCaptionPhaseStartMs = 0;
+
+let ambientMusicEnabled = true;
+
+/** 远程主源（勿对 <audio> 使用 crossorigin，否则常见服务器无 ACAO 会导致无法播放） */
+const AMBIENT_REMOTE_MP3 =
+    'https://incompetech.com/music/royalty-free/mp3-royaltyfree/Ghostpocalypse%20-%206%20Crossing%20the%20Threshold.mp3';
+const AMBIENT_LOCAL_MP3 = 'audio/cosmic_ambient.mp3';
+
+// --- Philosophy & Knowledge Data ---
+const PHILOSOPHY_DATA = [
+    {
+        tag: "太空哲学",
+        quote: `\u201c我们都是星尘\u2014\u2014由恒星锻造的原子构成的碳基生命，仰望星空时，不过是宇宙在凝视自己。\u201d`,
+        author: "—— 卡尔·萨根《宇宙》",
+        knowledge: "人体中的碳、氧、铁等重元素，都是在恒星内部的核聚变中诞生的。当大质量恒星超新星爆发时，这些元素被抛洒到星际空间，最终凝聚成行星和生命。"
+    },
+    {
+        tag: "太空哲学",
+        quote: `两种事物让我心怀敬畏：头顶的星空和内心的道德法则。`,
+        author: "—— 伊曼努尔·康德《实践理性批判》",
+        knowledge: "康德将星空视为崇高（Sublime）的象征——它超越了人类感知的极限，却激发了理性思考无限的能力。这种'数学的崇高'是美学哲学的核心概念。"
+    },
+    {
+        tag: "太空哲学",
+        quote: `对于宇宙来说，我微不足道；但对于我自己，我就是一切。`,
+        author: "—— 卡尔·萨根",
+        knowledge: "银河系包含约1000-4000亿颗恒星，可观测宇宙中约有2万亿个星系。但正是这渺小的概率，让意识得以在宇宙中觉醒。"
+    },
+    {
+        tag: "宇宙知识",
+        quote: `宇宙不仅比我们想象的更奇怪，它比我们能够想象的还要奇怪。`,
+        author: "—— J.B.S. 霍尔丹",
+        knowledge: "暗物质约占宇宙总质能的27%，暗能量约占68%，而我们能看到和触摸到的普通物质仅占约5%。宇宙的绝大部分对我们来说是不可见的。"
+    },
+    {
+        tag: "宇宙知识",
+        quote: `太空不是空的——它充满了可能性。`,
+        author: "—— 尼尔·德格拉斯·泰森",
+        knowledge: "星际空间并非绝对真空。每立方厘米的星际介质中约含有1个氢原子，以及微量的氦、尘埃粒子和复杂的有机分子。这些分子云是恒星诞生的摇篮。"
+    },
+    {
+        tag: "太空哲学",
+        quote: `地球是人类的摇篮，但人类不可能永远生活在摇篮里。`,
+        author: "—— 康斯坦丁·齐奥尔科夫斯基",
+        knowledge: "齐奥尔科夫斯基是航天学的奠基人之一，他在1903年推导出了火箭方程（齐奥尔科夫斯基公式），为人类进入太空奠定了理论基础。"
+    },
+    {
+        tag: "宇宙知识",
+        quote: `光从太阳到达地球需要8分20秒，但从银河系中心到达太阳需要约26,000年。`,
+        author: "—— 天文物理学基本事实",
+        knowledge: "太阳位于银河系猎户臂上，距银河系中心约26,000光年。银河系直径约10万光年，包含约1500个球状星团和数十亿颗恒星。"
+    },
+    {
+        tag: "太空哲学",
+        quote: `在广袤的宇宙和漫长的时光中，能与你共享同一颗星球和同一个时代，是我的荣幸。`,
+        author: "—— 卡尔·萨根",
+        knowledge: "宇宙的年龄约为138亿年，地球的年龄约为45.4亿年。人类文明史不过几千年——在宇宙的时间尺度上，只是一瞬。"
+    },
+    {
+        tag: "宇宙知识",
+        quote: `当你仰望夜空，你看到的是宇宙的过去。`,
+        author: "—— 天文学基本原理",
+        knowledge: "由于光速有限（约30万公里/秒），我们看到的一切都是它们过去的样子。月亮是1.3秒前的，太阳是8分钟前的，最近的恒星是4.2年前的。"
+    },
+    {
+        tag: "太空哲学",
+        quote: `人类的存在是宇宙认识自身的一种方式。`,
+        author: "—— 艾伦·瓦茨",
+        knowledge: "人脑包含约860亿个神经元，其连接数量超过可观测宇宙中的恒星总数。意识可能是宇宙演化出的最复杂的现象。"
+    },
+    {
+        tag: "宇宙知识",
+        quote: `如果你把太阳缩小到一个白细胞的大小，银河系的大小大约相当于整个美国大陆。`,
+        author: "—— 尺度类比",
+        knowledge: "太阳的直径约139万公里，而银河系的直径约10万光年（约9.46×10¹⁷公里）。两者相差约7个数量级——这就是宇宙尺度的惊人之处。"
+    },
+    {
+        tag: "太空哲学",
+        quote: `探索的冲动是我们最深刻的本能之一。我们是大洋中的陆地动物，注定要航行。`,
+        author: "—— 雷·布拉德伯里",
+        knowledge: "从非洲大草原仰望星空的远古人类，到阿波罗宇航员的月球脚印，探索的基因深植于人类文明之中。好奇心是进化的礼物。"
+    }
+];
+
+// --- Scene Data ---
+const SCENE_DATA = [
+    {
+        img: "space_scene_2076_colony.jpg",
+        title: "轨道太空殖民地 · 2076",
+        desc: "人类在近地轨道建造了旋转式太空殖民地，利用离心力模拟重力。内部拥有完整的生态系统——森林、湖泊、农田，数万人在这座'太空城市'中生活、工作、繁衍。"
+    },
+    {
+        img: "space_scene_2076_moon.jpg",
+        title: "月球永久基地 · 2076",
+        desc: "沙克尔顿环形山上的月球基地已运行超过20年。利用月球极地的水冰资源，基地实现了自给自足。从这里出发的航天器正准备执行第38次载人火星任务。"
+    },
+    {
+        img: "space_scene_2076_mars.jpg",
+        title: "火星殖民城市 · 2076",
+        desc: "经过数十年的地球化改造，火星的大气层已显著增厚。水手峡谷中矗立着'新曙光'城——火星上最大的定居点，拥有12万居民和完整的工业体系。"
+    }
+];
+
+// --- State ---
+let currentLogScale = LOG_SCALE_MAX;
+let targetLogScale = LOG_SCALE_MAX;
+let animating = false;
+let autoPlaying = false;
+let autoPlayDir = -1; // -1 = zooming in, 1 = zooming out
+let journeyStarted = false;
+let stars = [];
+let nebulaClouds = [];
+let solarSystemBodies = [];
+let earthFeatures = [];
+/** 贴图成功则优先用真实地表；失败时用 earthFeatures 多段椭圆回退 */
+let earthTextureImg = null;
+let cityLights = [];
+let galaxyParticles = [];
+let frameCount2 = 0;
+let currentPhiloIndex = 0;
+let lastPhiloChange = 0;
+let sliderDragging = false;
+let scaleSliderListenersAttached = false;
+/** 周边背景：0 艺术星场 · 1 物理示意 · 2 全关（仅深空底色） */
+let backdropMode = 0;
+/** 定位：unset 未请求 | locating 请求中 | naming 已有坐标、解析地名 | ready 完成 | denied 拒绝或不可用 */
+let viewerGeoStatus = 'unset';
+let viewerLat = 0;
+let viewerLon = 0;
+let viewerCityLabel = '';
+let viewerWarmLine = '';
+let geoHintTried = false;
+
+// --- Blackbody-ish star color from effective temperature (K), schematic ---
+function blackbodyRGB(Teff) {
+    Teff = constrain(Teff, 2800, 12000);
+    let r, g, b;
+    if (Teff < 4000) {
+        r = 255;
+        g = map(Teff, 2800, 4000, 70, 200);
+        b = map(Teff, 2800, 4000, 30, 120);
+    } else if (Teff < 6500) {
+        r = map(Teff, 4000, 6500, 255, 255);
+        g = map(Teff, 4000, 6500, 200, 245);
+        b = map(Teff, 4000, 6500, 120, 255);
+    } else {
+        r = map(Teff, 6500, 12000, 255, 200);
+        g = map(Teff, 6500, 12000, 245, 230);
+        b = 255;
+    }
+    return [constrain(r, 0, 255), constrain(g, 0, 255), constrain(b, 0, 255)];
+}
+
+function formatLatLon(lat, lon) {
+    let la = abs(lat).toFixed(4);
+    let lo = abs(lon).toFixed(4);
+    let ns = lat >= 0 ? 'N' : 'S';
+    let ew = lon >= 0 ? 'E' : 'W';
+    return la + '°' + ns + ' · ' + lo + '°' + ew;
+}
+
+function warmLineForPlace(placeName) {
+    let n = placeName && String(placeName).trim() ? String(placeName).trim() : '这里';
+    let h = 0;
+    for (let i = 0; i < n.length; i++) h = (h + n.charCodeAt(i) * (i + 1)) % 997;
+    let lines = [
+        '愿你在' + n + '的这一夜，有星光与晚风，也有人懂你心里的安静。',
+        n + '的天空和别处连着同一片宇宙——你站在这里，光从很远的地方赶来见你。',
+        '不论' + n + '的街巷多喧闹，抬头的那一秒，都属于你和寂静的深空。',
+    ];
+    return lines[h % lines.length];
+}
+
+function buildGeoAdminLabel(data) {
+    let prov = (data.principalSubdivision || '').trim();
+    let city = (data.city || '').trim();
+    let loc = (data.locality || '').trim();
+    let label = '';
+    if (loc) {
+        if (prov && (!city || city === prov)) label = prov + ' · ' + loc;
+        else if (prov && city) label = prov + ' · ' + city + ' · ' + loc;
+        else label = loc;
+    } else if (city && prov && city !== prov) label = prov + ' · ' + city;
+    else label = city || prov || (data.countryName || '').trim() || '当前区域';
+    if (label.length > 44) label = label.slice(0, 43) + '…';
+    return label;
+}
+
+function refreshGeoHud() {
+    if (typeof getCurrentLevelIndex !== 'function' || typeof updateUI !== 'function') return;
+    try {
+        updateUI(getCurrentLevelIndex());
+    } catch (e) {}
+}
+
+function reverseGeocodeClientFill(lat, lon) {
+    let url =
+        'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
+        encodeURIComponent(lat) +
+        '&longitude=' +
+        encodeURIComponent(lon) +
+        '&localityLanguage=zh';
+    fetch(url)
+        .then(function (r) {
+            return r.json();
+        })
+        .then(function (data) {
+            if (viewerGeoStatus !== 'naming') return;
+            viewerGeoStatus = 'ready';
+            viewerCityLabel = buildGeoAdminLabel(data);
+            let short =
+                (data.locality || '').trim() ||
+                (data.city || '').trim() ||
+                (data.principalSubdivision || '').trim() ||
+                '这里';
+            viewerWarmLine = warmLineForPlace(short);
+            refreshGeoHud();
+        })
+        .catch(function () {
+            if (viewerGeoStatus !== 'naming') return;
+            viewerGeoStatus = 'ready';
+            viewerCityLabel = '当前区域';
+            viewerWarmLine = warmLineForPlace('脚下这片土地');
+            refreshGeoHud();
+        });
+}
+
+function tryResolveGeolocation() {
+    if (geoHintTried) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        geoHintTried = true;
+        viewerGeoStatus = 'denied';
+        viewerCityLabel = '无法使用定位';
+        viewerWarmLine = '当前环境不支持地理位置，将无法显示你所在的城市与坐标。';
+        refreshGeoHud();
+        return;
+    }
+    geoHintTried = true;
+    viewerGeoStatus = 'locating';
+    viewerCityLabel = '正在获取你的位置…';
+    viewerWarmLine = '若浏览器询问权限，请选择「允许」以显示真实城市与经纬度。';
+    refreshGeoHud();
+    navigator.geolocation.getCurrentPosition(
+        function (pos) {
+            viewerLat = pos.coords.latitude;
+            viewerLon = pos.coords.longitude;
+            viewerGeoStatus = 'naming';
+            viewerCityLabel = '正在匹配附近区域…';
+            viewerWarmLine = '';
+            reverseGeocodeClientFill(viewerLat, viewerLon);
+            refreshGeoHud();
+        },
+        function () {
+            viewerGeoStatus = 'denied';
+            viewerLat = 0;
+            viewerLon = 0;
+            viewerCityLabel = '定位未开启';
+            viewerWarmLine =
+                '在浏览器设置中允许「位置」权限后，这里会显示你所在的城市、真实经纬度，和一句此刻专属于你的问候。';
+            refreshGeoHud();
+        },
+        { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
+    );
+}
+
+function regenerateAmbientField() {
+    if (backdropMode === 2) {
+        stars = [];
+        nebulaClouds = [];
+        return;
+    }
+    generateStars(3000);
+    generateNebulaClouds(backdropMode === 1 ? 10 : 15);
+}
+
+function cycleBackdropMode() {
+    backdropMode = (backdropMode + 1) % 3;
+    let btn = document.getElementById('physBackdropBtn');
+    if (!btn) return;
+    let labels = ['物', '理', '无'];
+    let titles = [
+        '背景：艺术星场（点击→物理：薄盘+银晕+ISM）',
+        '背景：物理示意（点击→全关：无星场星云）',
+        '背景：全关（点击→艺术星场）'
+    ];
+    btn.textContent = labels[backdropMode];
+    btn.title = titles[backdropMode];
+    btn.setAttribute('aria-pressed', backdropMode === 1 ? 'true' : 'false');
+    btn.classList.toggle('active', backdropMode === 1);
+    btn.classList.toggle('backdrop-off', backdropMode === 2);
+    regenerateAmbientField();
+}
+
+// --- p5.js ---
+function preload() {
+    earthTextureImg = loadImage(
+        'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
+        function () {},
+        function () {
+            earthTextureImg = null;
+        }
+    );
+}
+
+function setup() {
+    let canvas = createCanvas(windowWidth, windowHeight);
+    canvas.parent('canvas-container');
+    generateStars(3000);
+    generateNebulaClouds(15);
+    generateGalaxyParticles(3000);
+    generateSolarSystem();
+    generateEarthFeatures();
+    generateCityLights();
+    stopAnimLoop();
+    draw();
+
+    // Auto-start journey after intro reading time
+    setTimeout(() => {
+        if (!journeyStarted) {
+            startJourney();
+        }
+    }, 3500);
+}
+
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    if (journeyStarted) regenerateAmbientField();
+}
+
+// Custom animation loop using requestAnimationFrame (more reliable than p5's loop())
+let animFrameId = null;
+
+function startAnimLoop() {
+    if (animFrameId) return;
+    function tick() {
+        draw();
+        animFrameId = requestAnimationFrame(tick);
+    }
+    animFrameId = requestAnimationFrame(tick);
+}
+
+function stopAnimLoop() {
+    if (animFrameId) {
+        cancelAnimationFrame(animFrameId);
+        animFrameId = null;
+    }
+}
+
+function draw() {
+    frameCount2++;
+    background(5, 5, 16);
+
+    // Smooth interpolation (slower = gentler zoom / slider follow)
+    let lerpSpeed = 0.018;
+    if (animating) lerpSpeed = 0.011;
+    currentLogScale += (targetLogScale - currentLogScale) * lerpSpeed;
+
+    if (abs(currentLogScale - targetLogScale) < 0.01) {
+        currentLogScale = targetLogScale;
+        animating = false;
+    }
+
+    // Determine current scale level
+    let levelIndex = getCurrentLevelIndex();
+
+    // Draw layers based on scale
+    drawDeepSpace();
+    drawNebulae(levelIndex);
+    drawStars(levelIndex);
+    drawGalaxy(levelIndex);
+    drawSolarSystemView(levelIndex);
+    drawEarthView(levelIndex);
+    drawCityView(levelIndex);
+    drawYouMarker(levelIndex);
+
+    // Update UI
+    updateUI(levelIndex);
+
+    // Draw scale transition label in center
+    drawScaleTransition(levelIndex);
+
+    // Auto play
+    if (autoPlaying && frameCount2 % 2 === 0) {
+        targetLogScale += autoPlayDir * 0.032;
+        if (targetLogScale <= LOG_SCALE_MIN) { targetLogScale = LOG_SCALE_MIN; autoPlayDir = 1; }
+        if (targetLogScale >= LOG_SCALE_MAX) { targetLogScale = LOG_SCALE_MAX; autoPlayDir = -1; }
+    }
+
+    // Philosophy rotation
+    if (frameCount2 - lastPhiloChange > 600) {
+        lastPhiloChange = frameCount2;
+        currentPhiloIndex = (currentPhiloIndex + 1) % PHILOSOPHY_DATA.length;
+        updatePhilosophy(currentPhiloIndex);
+    }
+}
+
+function getCurrentLevelIndex() {
+    if (currentLogScale > SCALE_LEVELS[0].logSize) return 0;
+    let n = SCALE_LEVELS.length;
+    for (let i = 0; i < n - 1; i++) {
+        let hi = SCALE_LEVELS[i].logSize;
+        let lo = SCALE_LEVELS[i + 1].logSize;
+        if (currentLogScale <= hi && currentLogScale > lo) return i;
+    }
+    return n - 1;
+}
+
+// --- Star Field ---
+function generateStars(count) {
+    stars = [];
+    let cx = width * 0.5;
+    let cy = height * 0.5;
+    let Rmax = max(width, height) * 0.72;
+
+    if (backdropMode === 1) {
+        for (let i = 0; i < count; i++) {
+            let diskPop = random() < 0.8;
+            let x, y, Teff;
+            if (diskPop) {
+                let u = max(0.001, random());
+                let R = -0.22 * Rmax * log(u);
+                R = constrain(R, 0, Rmax * 1.05);
+                let phi = random(TWO_PI);
+                x = cx + cos(phi) * R + randomGaussian(0, Rmax * 0.012);
+                y = cy + sin(phi) * R * 0.12 + randomGaussian(0, height * 0.028);
+                Teff = random(4500, 9800);
+            } else {
+                let v = random();
+                let r = pow(v, 1 / 2.4) * Rmax * 0.92;
+                let theta = random(TWO_PI);
+                let mu = 2 * random() - 1;
+                let phi = random(TWO_PI);
+                let st = sqrt(max(0, 1 - mu * mu));
+                x = cx + r * st * cos(theta);
+                y = cy + r * st * sin(theta) * 0.52 + r * mu * 0.22;
+                Teff = random(3200, 5200);
+            }
+            let col = blackbodyRGB(Teff);
+            stars.push({
+                x: x,
+                y: y,
+                size: random(0.4, 2.6),
+                brightness: random(90, 245),
+                twinkleSpeed: random(0.008, 0.04),
+                twinkleOffset: random(TWO_PI),
+                color: col
+            });
+        }
+        return;
+    }
+
+    for (let i = 0; i < count; i++) {
+        stars.push({
+            x: random(-width * 2, width * 2),
+            y: random(-height * 2, height * 2),
+            size: random(0.5, 3),
+            brightness: random(100, 255),
+            twinkleSpeed: random(0.01, 0.05),
+            twinkleOffset: random(TWO_PI),
+            color: random([
+                [255, 255, 255],
+                [200, 220, 255],
+                [255, 240, 200],
+                [255, 200, 180],
+                [180, 200, 255]
+            ])
+        });
+    }
+}
+
+function drawStars(levelIndex) {
+    if (backdropMode === 2) return;
+    if (levelIndex >= 10) return;
+    for (let s of stars) {
+        let twinkle = sin(frameCount2 * s.twinkleSpeed + s.twinkleOffset) * 0.3 + 0.7;
+        let alpha = s.brightness * twinkle;
+        let sz = s.size;
+
+        // Stars become more prominent at larger scales
+        if (levelIndex <= 3) {
+            sz *= 1.5;
+        }
+
+        let sx = (s.x - width / 2) * 0.5 + width / 2;
+        let sy = (s.y - height / 2) * 0.5 + height / 2;
+
+        // Wrap around
+        sx = ((sx % width) + width) % width;
+        sy = ((sy % height) + height) % height;
+
+        noStroke();
+        fill(s.color[0], s.color[1], s.color[2], alpha);
+        ellipse(sx, sy, sz, sz);
+
+        // Glow for brighter stars
+        if (s.size > 2 && levelIndex <= 5) {
+            fill(s.color[0], s.color[1], s.color[2], alpha * 0.1);
+            ellipse(sx, sy, sz * 4, sz * 4);
+        }
+    }
+}
+
+// --- Nebulae ---
+function generateNebulaClouds(count) {
+    nebulaClouds = [];
+    if (backdropMode === 1) {
+        let n = max(6, min(count, 12));
+        for (let i = 0; i < n; i++) {
+            let bandY = height * (0.38 + random(0.24));
+            nebulaClouds.push({
+                x: random(width * 0.12, width * 0.88),
+                y: bandY + randomGaussian(0, height * 0.045),
+                size: random(55, 160),
+                color: random([
+                    [165, 75, 135],
+                    [120, 55, 125],
+                    [95, 105, 175],
+                    [140, 90, 150]
+                ]),
+                alpha: random(3, 11),
+                drift: random(0.00015, 0.00065)
+            });
+        }
+        return;
+    }
+
+    for (let i = 0; i < count; i++) {
+        nebulaClouds.push({
+            x: random(width),
+            y: random(height),
+            size: random(100, 400),
+            color: random([
+                [100, 50, 200],
+                [50, 100, 200],
+                [200, 50, 100],
+                [50, 200, 150],
+                [150, 80, 180]
+            ]),
+            alpha: random(5, 20),
+            drift: random(0.0005, 0.002)
+        });
+    }
+}
+
+function drawNebulae(levelIndex) {
+    if (backdropMode === 2) return;
+    if (levelIndex > 5) return;
+    let fadeAlpha = map(levelIndex, 3, 5, 1, 0);
+    fadeAlpha = constrain(fadeAlpha, 0, 1);
+
+    let wobbleX = backdropMode === 1 ? 10 : 30;
+    let wobbleY = backdropMode === 1 ? 7 : 20;
+
+    for (let n of nebulaClouds) {
+        let nx = n.x + sin(frameCount2 * n.drift) * wobbleX;
+        let ny = n.y + cos(frameCount2 * n.drift * 0.7) * wobbleY;
+        let sz = n.size * (1 + sin(frameCount2 * 0.005 + n.x) * 0.1);
+
+        noStroke();
+        for (let r = sz; r > 0; r -= sz * 0.15) {
+            let a = n.alpha * (r / sz) * fadeAlpha;
+            fill(n.color[0], n.color[1], n.color[2], a);
+            ellipse(nx, ny, r, r * 0.7);
+        }
+    }
+}
+
+function drawDeepSpace() {
+    let levelIndex = getCurrentLevelIndex();
+    if (backdropMode === 2) {
+        noStroke();
+        fill(5, 5, 14);
+        rect(0, 0, width, height);
+        return;
+    }
+    // Subtle gradient background
+    let bgR = map(levelIndex, 0, SCALE_LEVELS.length - 1, 5, 15);
+    let bgG = map(levelIndex, 0, SCALE_LEVELS.length - 1, 5, 25);
+    let bgB = map(levelIndex, 0, SCALE_LEVELS.length - 1, 16, 50);
+
+    // Radial gradient
+    noStroke();
+    for (let r = max(width, height); r > 0; r -= 20) {
+        let t = r / max(width, height);
+        fill(bgR * (1 - t * 0.3), bgG * (1 - t * 0.3), bgB * (1 - t * 0.3), 10);
+        ellipse(width / 2, height / 2, r, r);
+    }
+
+    // 物理模式：银河系前景外示意 — 盘区消光尘埃带（中心动画不受影响）
+    if (backdropMode === 1 && levelIndex <= 5) {
+        let dustA = map(levelIndex, 0, 5, 22, 8);
+        noStroke();
+        fill(4, 4, 14, dustA);
+        rectMode(CENTER);
+        rect(width * 0.5, height * 0.5, width * 0.055, height * 0.92);
+        rectMode(CORNER);
+        fill(6, 6, 20, dustA * 0.45);
+        ellipse(width * 0.5, height * 0.5, width * 0.2, height * 0.14);
+    }
+}
+
+// --- Galaxy Particles (pre-generated for stable rendering) ---
+function generateGalaxyParticles(count) {
+    galaxyParticles = [];
+    let numArms = 4;
+    for (let i = 0; i < count; i++) {
+        let arm = i % numArms;
+        let armAngle = (arm / numArms) * TWO_PI;
+        let t = i / count; // 0 to 1
+        let dist = t;
+        let angle = armAngle + dist * 6.0; // tighter spiral
+        let spread = dist * 0.18;
+        let offsetX = (Math.random() - 0.5) * spread * 2;
+        let offsetY = (Math.random() - 0.5) * spread * 2;
+
+        galaxyParticles.push({
+            angle: angle,
+            dist: dist,
+            offsetX: offsetX,
+            offsetY: offsetY,
+            brightness: map(t, 0, 1, 255, 40),
+            size: map(t, 0, 1, 2.8, 0.4),
+            isCore: t < 0.15
+        });
+    }
+}
+
+// --- Galaxy ---
+function drawGalaxy(levelIndex) {
+    if (levelIndex < 1 || levelIndex > 4) return;
+    let alpha = 1;
+    if (levelIndex === 1) alpha = map(currentLogScale, SCALE_LEVELS[1].logSize, SCALE_LEVELS[2].logSize, 0.3, 1);
+    if (levelIndex === 4) alpha = map(currentLogScale, SCALE_LEVELS[3].logSize, SCALE_LEVELS[4].logSize, 1, 0);
+    alpha = constrain(alpha, 0, 1);
+
+    push();
+    translate(width / 2, height / 2);
+
+    let galaxyRadius = min(width, height) * 0.38;
+    let rotation = frameCount2 * 0.0003;
+
+    noStroke();
+    for (let p of galaxyParticles) {
+        let a = p.angle + rotation;
+        let d = p.dist * galaxyRadius;
+        let sx = cos(a) * d + p.offsetX * galaxyRadius;
+        let sy = sin(a) * d * 0.55 + p.offsetY * galaxyRadius * 0.55;
+
+        if (p.isCore) {
+            fill(255, 240, 200, p.brightness * alpha * 0.7);
+        } else {
+            fill(200, 215, 255, p.brightness * alpha * 0.5);
+        }
+        ellipse(sx, sy, p.size, p.size);
+    }
+
+    // Galaxy core glow
+    for (let r = 70; r > 0; r -= 3) {
+        fill(255, 240, 200, map(r, 0, 70, 35, 0) * alpha);
+        ellipse(0, 0, r, r * 0.55);
+    }
+
+    // Sun position marker (in Orion Arm)
+    let sunAngle = 0.8 + rotation;
+    let sunDist = galaxyRadius * 0.55;
+    let sunX = cos(sunAngle) * sunDist;
+    let sunY = sin(sunAngle) * sunDist * 0.55;
+
+    if (levelIndex >= 2 && levelIndex <= 3) {
+        let pulse = sin(frameCount2 * 0.05) * 0.3 + 0.7;
+        fill(255, 200, 50, 200 * alpha * pulse);
+        ellipse(sunX, sunY, 8, 8);
+        fill(255, 200, 50, 50 * alpha * pulse);
+        ellipse(sunX, sunY, 22, 22);
+
+        fill(255, 200, 50, 200 * alpha);
+        textAlign(CENTER);
+        textSize(12);
+        textFont('Noto Sans SC');
+        text('☀ 太阳系位置', sunX, sunY - 16);
+    }
+
+    pop();
+}
+
+// --- Solar System ---
+function generateSolarSystem() {
+    solarSystemBodies = [
+        { name: "太阳", dist: 0, size: 30, color: [255, 200, 50], glow: [255, 150, 0] },
+        { name: "水星", dist: 60, size: 4, color: [180, 160, 140], glow: null },
+        { name: "金星", dist: 90, size: 7, color: [230, 200, 150], glow: null },
+        { name: "地球", dist: 130, size: 8, color: [50, 130, 230], glow: [100, 180, 255] },
+        { name: "火星", dist: 170, size: 6, color: [200, 80, 50], glow: null },
+        { name: "木星", dist: 230, size: 18, color: [200, 170, 130], glow: null },
+        { name: "土星", dist: 290, size: 15, color: [220, 200, 150], glow: null, ring: true },
+        { name: "天王星", dist: 340, size: 10, color: [150, 210, 230], glow: null },
+        { name: "海王星", dist: 380, size: 10, color: [60, 100, 220], glow: null },
+    ];
+}
+
+function drawSolarSystemView(levelIndex) {
+    if (levelIndex < 4 || levelIndex > 7) return;
+
+    let alpha = 1;
+    if (levelIndex === 4) {
+        alpha = map(currentLogScale, SCALE_LEVELS[4].logSize, SCALE_LEVELS[5].logSize, 0, 1);
+    } else if (levelIndex === 6) {
+        alpha = map(currentLogScale, SCALE_LEVELS[6].logSize, SCALE_LEVELS[7].logSize, 1, 0);
+    } else if (levelIndex === 7) {
+        /* log 接近 9（滑条「地月」节点）时应最亮；接近 7 时淡出交给「地球」档 —— 勿用 (7,9)→(1,0) 否则 log=9 时全透明 */
+        alpha = map(currentLogScale, SCALE_LEVELS[8].logSize, SCALE_LEVELS[7].logSize, 0, 1);
+    }
+    alpha = constrain(alpha, 0, 1);
+
+    push();
+    translate(width / 2, height / 2);
+
+    if (levelIndex === 4 || levelIndex === 5) {
+        stroke(255, 255, 255, 20 * alpha);
+        strokeWeight(0.5);
+        noFill();
+        for (let body of solarSystemBodies) {
+            if (body.dist > 0) {
+                let orbitSize = body.dist * 2;
+                ellipse(0, 0, orbitSize, orbitSize);
+            }
+        }
+
+        noStroke();
+        for (let r = 80; r > 0; r -= 4) {
+            fill(255, 200, 50, map(r, 0, 80, 15, 0) * alpha);
+            ellipse(0, 0, r, r);
+        }
+
+        for (let i = 0; i < solarSystemBodies.length; i++) {
+            let body = solarSystemBodies[i];
+            let angle = frameCount2 * 0.002 * (1 / (i + 1)) + i * 0.7;
+            let px = cos(angle) * body.dist;
+            let py = sin(angle) * body.dist;
+
+            fill(body.color[0], body.color[1], body.color[2], 255 * alpha);
+            noStroke();
+            ellipse(px, py, body.size, body.size);
+
+            if (body.glow) {
+                for (let r = body.size * 3; r > 0; r -= 2) {
+                    fill(body.glow[0], body.glow[1], body.glow[2], map(r, 0, body.size * 3, 10, 0) * alpha);
+                    ellipse(px, py, r, r);
+                }
+            }
+
+            if (body.ring) {
+                noFill();
+                stroke(220, 200, 150, 150 * alpha);
+                strokeWeight(2);
+                ellipse(px, py, body.size * 2.2, body.size * 0.6);
+            }
+
+            if (body.dist > 0) {
+                fill(255, 255, 255, 180 * alpha);
+                noStroke();
+                textAlign(CENTER);
+                textSize(10);
+                textFont('Noto Sans SC');
+                text(body.name, px, py - body.size / 2 - 8);
+            }
+        }
+    } else if (levelIndex === 6) {
+        let earthBody = solarSystemBodies[3];
+        let orbitSize = earthBody.dist * 2;
+        stroke(255, 255, 255, 28 * alpha);
+        strokeWeight(0.6);
+        noFill();
+        ellipse(0, 0, orbitSize, orbitSize);
+
+        noStroke();
+        for (let r = 72; r > 0; r -= 4) {
+            fill(255, 200, 50, map(r, 0, 72, 14, 0) * alpha);
+            ellipse(0, 0, r, r);
+        }
+        fill(255, 200, 50, 255 * alpha);
+        ellipse(0, 0, 26, 26);
+
+        let ang = frameCount2 * 0.003 + 1.1;
+        let ex = cos(ang) * earthBody.dist;
+        let ey = sin(ang) * earthBody.dist;
+        for (let r = earthBody.size * 3; r > 0; r -= 2) {
+            fill(earthBody.glow[0], earthBody.glow[1], earthBody.glow[2], map(r, 0, earthBody.size * 3, 12, 0) * alpha);
+            ellipse(ex, ey, r, r);
+        }
+        fill(earthBody.color[0], earthBody.color[1], earthBody.color[2], 255 * alpha);
+        ellipse(ex, ey, earthBody.size, earthBody.size);
+
+        fill(255, 255, 255, 200 * alpha);
+        textAlign(CENTER);
+        textFont('Noto Sans SC');
+        textSize(11);
+        text('地球公转轨道（示意）', 0, -orbitSize * 0.52);
+        textSize(10);
+        text('太阳', 0, 36);
+        text('地球', ex, ey - earthBody.size * 0.5 - 10);
+    } else if (levelIndex === 7) {
+        let moonDist = 58;
+        let moonAng = frameCount2 * 0.065 + 0.4;
+        let mx = cos(moonAng) * moonDist;
+        let my = sin(moonAng) * moonDist * 0.9;
+
+        noFill();
+        stroke(255, 255, 255, 35 * alpha);
+        strokeWeight(0.55);
+        ellipse(0, 0, moonDist * 2, moonDist * 2 * 0.9);
+
+        fill(50, 130, 230, 255 * alpha);
+        noStroke();
+        ellipse(0, 0, 22, 22);
+        for (let r = 28; r > 0; r -= 2) {
+            fill(100, 180, 255, map(r, 0, 28, 8, 0) * alpha);
+            ellipse(0, 0, r, r);
+        }
+
+        fill(210, 210, 220, 255 * alpha);
+        ellipse(mx, my, 9, 9);
+
+        fill(255, 200, 50, 210 * alpha);
+        ellipse(108, 18, 20, 20);
+
+        fill(255, 255, 255, 195 * alpha);
+        textAlign(CENTER);
+        textFont('Noto Sans SC');
+        textSize(11);
+        text('地月系统（未按比例）', 0, -72);
+        textSize(10);
+        text('地球', 0, 38);
+        text('月球', mx, my + 18);
+        textAlign(LEFT);
+        text('太阳（远景）', 88, 12);
+    }
+
+    pop();
+}
+
+// --- Earth View ---
+function generateEarthFeatures() {
+    earthFeatures = [];
+    /** 回退：每洲多段椭圆拼出略有机的形状（归一化 0~1，cx 经度方向、cy 纬度方向） */
+    let continents = [
+        {
+            name: '亚洲',
+            blobs: [
+                { cx: 0.68, cy: 0.32, w: 0.22, h: 0.2 },
+                { cx: 0.58, cy: 0.38, w: 0.14, h: 0.16 },
+                { cx: 0.78, cy: 0.42, w: 0.1, h: 0.14 },
+                { cx: 0.52, cy: 0.28, w: 0.1, h: 0.1 },
+            ],
+        },
+        {
+            name: '欧洲',
+            blobs: [
+                { cx: 0.52, cy: 0.26, w: 0.1, h: 0.11 },
+                { cx: 0.46, cy: 0.3, w: 0.07, h: 0.09 },
+            ],
+        },
+        {
+            name: '非洲',
+            blobs: [
+                { cx: 0.52, cy: 0.52, w: 0.12, h: 0.34 },
+                { cx: 0.48, cy: 0.45, w: 0.08, h: 0.14 },
+                { cx: 0.56, cy: 0.62, w: 0.08, h: 0.12 },
+            ],
+        },
+        {
+            name: '北美洲',
+            blobs: [
+                { cx: 0.22, cy: 0.28, w: 0.14, h: 0.22 },
+                { cx: 0.16, cy: 0.38, w: 0.1, h: 0.16 },
+                { cx: 0.28, cy: 0.34, w: 0.1, h: 0.12 },
+            ],
+        },
+        {
+            name: '南美洲',
+            blobs: [
+                { cx: 0.28, cy: 0.58, w: 0.09, h: 0.26 },
+                { cx: 0.26, cy: 0.48, w: 0.06, h: 0.1 },
+            ],
+        },
+        {
+            name: '大洋洲',
+            blobs: [
+                { cx: 0.82, cy: 0.62, w: 0.1, h: 0.09 },
+                { cx: 0.88, cy: 0.66, w: 0.06, h: 0.06 },
+            ],
+        },
+        {
+            name: '格陵兰',
+            blobs: [
+                { cx: 0.32, cy: 0.18, w: 0.06, h: 0.12 },
+            ],
+        },
+    ];
+    earthFeatures = continents;
+}
+
+function drawEarthTextureDisk(earthR, alpha, rotation) {
+    if (!earthTextureImg || earthTextureImg.width <= 0) return false;
+    let tw = earthTextureImg.width;
+    let th = earthTextureImg.height;
+    let dispW = earthR * 2.38;
+    let dispH = dispW * (th / tw);
+    let du = rotation % 1;
+    if (du < 0) du += 1;
+    let ox = -dispW * 0.5 - du * dispW;
+    push();
+    tint(255, Math.floor(245 * alpha));
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.arc(0, 0, earthR - 4, 0, Math.PI * 2);
+    drawingContext.clip();
+    for (let k = -2; k <= 2; k++) {
+        image(earthTextureImg, ox + k * dispW, -dispH * 0.5, dispW, dispH, 0, 0, tw, th);
+    }
+    drawingContext.restore();
+    pop();
+    noTint();
+    return true;
+}
+
+function drawEarthFallbackContinents(earthR, alpha, rotation, levelIndex) {
+    for (let c of earthFeatures) {
+        let blobs = c.blobs || [{ cx: c.cx, cy: c.cy, w: c.w, h: c.h }];
+        let sumX = 0;
+        let sumY = 0;
+        let nB = 0;
+        for (let b of blobs) {
+            let du = (b.cx + rotation) % 1;
+            if (du < 0) du += 1;
+            let px = (du - 0.5) * earthR * 1.6;
+            let py = (b.cy - 0.5) * earthR * 1.6;
+            let pw = b.w * earthR * 1.6;
+            let ph = b.h * earthR * 1.6;
+            if (abs(px) < earthR * 0.92) {
+                let visAlpha = map(abs(px), earthR * 0.5, earthR * 0.88, 1, 0.35);
+                visAlpha = constrain(visAlpha, 0.35, 1);
+                fill(52, 118, 72, 215 * alpha * visAlpha);
+                noStroke();
+                ellipse(px, py, pw, ph);
+                sumX += px;
+                sumY += py;
+                nB++;
+            }
+        }
+        if (levelIndex >= 8 && levelIndex <= 9 && nB > 0) {
+            fill(255, 255, 255, 155 * alpha);
+            textAlign(CENTER);
+            textSize(10);
+            textFont('Noto Sans SC');
+            text(c.name, sumX / nB, sumY / nB);
+        }
+    }
+}
+
+function drawEarthView(levelIndex) {
+    if (levelIndex < 8 || levelIndex > 9) return;
+    let alpha = 1;
+    if (levelIndex === 8) {
+        alpha = map(currentLogScale, SCALE_LEVELS[7].logSize, SCALE_LEVELS[8].logSize, 0, 1);
+    } else if (levelIndex === 9) {
+        alpha = map(currentLogScale, SCALE_LEVELS[9].logSize, SCALE_LEVELS[10].logSize, 1, 0);
+    }
+    alpha = constrain(alpha, 0, 1);
+
+    push();
+    translate(width / 2, height / 2);
+
+    let earthR = min(width, height) * 0.35;
+
+    // Earth sphere
+    // Ocean
+    noStroke();
+    for (let r = earthR; r > earthR - 5; r -= 1) {
+        fill(30, 80, 180, map(r, earthR - 5, earthR, 0, 200) * alpha);
+        ellipse(0, 0, r * 2, r * 2);
+    }
+
+    // Ocean fill
+    fill(25, 70, 160, 230 * alpha);
+    ellipse(0, 0, earthR * 2 - 10, earthR * 2 - 10);
+
+    // Atmosphere glow
+    for (let r = earthR + 30; r > earthR; r -= 2) {
+        fill(100, 180, 255, map(r, earthR, earthR + 30, 15, 0) * alpha);
+        ellipse(0, 0, r * 2, r * 2);
+    }
+
+    // 大陆：优先 NASA/three.js 示例贴图（等距圆柱投影 + 圆形裁剪滚动）；失败则用多段椭圆回退
+    let rotation = frameCount2 * 0.0003;
+    let usedTex = drawEarthTextureDisk(earthR, alpha, rotation);
+    if (!usedTex) {
+        drawEarthFallbackContinents(earthR, alpha, rotation, levelIndex);
+    }
+
+    noFill();
+    stroke(8, 18, 48, 70 * alpha);
+    strokeWeight(2.5);
+    ellipse(0, 0, earthR * 2 - 6, earthR * 2 - 6);
+
+    // Cloud layer
+    for (let i = 0; i < 8; i++) {
+        let cloudAngle = rotation * 2 + i * 0.8;
+        let cloudR = earthR * (0.3 + i * 0.08);
+        let cx = cos(cloudAngle) * cloudR;
+        let cy = sin(cloudAngle) * cloudR * 0.5;
+        fill(255, 255, 255, 25 * alpha);
+        ellipse(cx, cy, 40 + i * 10, 15 + i * 3);
+    }
+
+    // "You are here" marker for Asia
+    if (levelIndex >= 9) {
+        let markerX = 0.15 * earthR * 1.6;
+        let markerY = -0.15 * earthR * 1.6;
+        let pulse = sin(frameCount2 * 0.05) * 0.3 + 0.7;
+
+        // Ping effect
+        noFill();
+        stroke(255, 100, 50, 100 * alpha * pulse);
+        strokeWeight(2);
+        let pingSize = 10 + sin(frameCount2 * 0.03) * 8;
+        ellipse(markerX, markerY, pingSize, pingSize);
+
+        fill(255, 100, 50, 255 * alpha);
+        noStroke();
+        ellipse(markerX, markerY, 6, 6);
+
+        fill(255, 100, 50, 200 * alpha);
+        textAlign(CENTER);
+        textSize(12);
+        textFont('Noto Sans SC');
+        text('📍 你在这里', markerX, markerY - 15);
+    }
+
+    pop();
+}
+
+// --- City View ---
+function generateCityLights() {
+    cityLights = [];
+    for (let i = 0; i < 200; i++) {
+        cityLights.push({
+            x: random(-300, 300),
+            y: random(-200, 200),
+            size: random(1, 4),
+            color: random([
+                [255, 200, 100],
+                [255, 150, 50],
+                [200, 220, 255],
+                [255, 100, 100],
+                [100, 255, 200]
+            ]),
+            flicker: random(0.02, 0.08)
+        });
+    }
+}
+
+function drawCityView(levelIndex) {
+    if (levelIndex !== 10) return;
+    let alpha = map(currentLogScale, SCALE_LEVELS[11].logSize, SCALE_LEVELS[10].logSize, 0, 1);
+    alpha = constrain(alpha, 0, 1);
+
+    push();
+    translate(width / 2, height / 2);
+
+    // City grid
+    stroke(60, 80, 100, 30 * alpha);
+    strokeWeight(0.5);
+    for (let x = -400; x <= 400; x += 30) {
+        line(x, -300, x, 300);
+    }
+    for (let y = -300; y <= 300; y += 30) {
+        line(-400, y, 400, y);
+    }
+
+    // City lights
+    noStroke();
+    for (let l of cityLights) {
+        let flicker = sin(frameCount2 * l.flicker) * 0.3 + 0.7;
+        fill(l.color[0], l.color[1], l.color[2], 200 * alpha * flicker);
+        ellipse(l.x, l.y, l.size, l.size);
+
+        // Glow
+        fill(l.color[0], l.color[1], l.color[2], 20 * alpha * flicker);
+        ellipse(l.x, l.y, l.size * 4, l.size * 4);
+    }
+
+    // Roads
+    stroke(80, 80, 100, 60 * alpha);
+    strokeWeight(3);
+    line(-400, 0, 400, 0);
+    line(0, -300, 0, 300);
+
+    // Buildings (simple rectangles)
+    noStroke();
+    let buildings = [
+        { x: -80, y: -40, w: 30, h: 80 },
+        { x: -30, y: -60, w: 25, h: 100 },
+        { x: 20, y: -30, w: 35, h: 70 },
+        { x: 70, y: -50, w: 20, h: 90 },
+        { x: -60, y: 30, w: 40, h: 50 },
+        { x: 40, y: 40, w: 30, h: 60 },
+    ];
+
+    for (let b of buildings) {
+        fill(30, 40, 60, 150 * alpha);
+        rect(b.x, b.y, b.w, b.h, 2);
+
+        // Windows
+        for (let wy = b.y + 5; wy < b.y + b.h - 5; wy += 10) {
+            for (let wx = b.x + 4; wx < b.x + b.w - 4; wx += 8) {
+                let on = noise(wx * 0.1, wy * 0.1, frameCount2 * 0.01) > 0.4;
+                if (on) {
+                    fill(255, 220, 100, 180 * alpha);
+                    rect(wx, wy, 4, 5);
+                }
+            }
+        }
+    }
+
+    fill(255, 255, 255, 235 * alpha);
+    textAlign(CENTER);
+    textFont('Noto Sans SC');
+    textSize(17);
+    text(viewerCityLabel || '…', 0, -248);
+    textSize(12);
+    textFont('Orbitron');
+    fill(0, 229, 255, 210 * alpha);
+    if (viewerGeoStatus === 'naming' || viewerGeoStatus === 'ready') {
+        text(formatLatLon(viewerLat, viewerLon), 0, -222);
+    } else {
+        text('', 0, -222);
+    }
+    textFont('Noto Sans SC');
+    textSize(10);
+    fill(200, 205, 230, 170 * alpha);
+    if (viewerGeoStatus === 'ready' && viewerWarmLine) {
+        text(viewerWarmLine, 0, -200);
+    } else if (viewerWarmLine) {
+        text(viewerWarmLine, 0, -200);
+    } else if (viewerGeoStatus === 'naming') {
+        text('地名解析完成后，会在这里出现一句给你的话。', 0, -200);
+    } else {
+        text('城市尺度 · 俯瞰视角', 0, -200);
+    }
+
+    pop();
+}
+
+// --- You Marker ---
+function drawYouMarker(levelIndex) {
+    if (levelIndex < 11) return;
+    let alpha = map(currentLogScale, SCALE_LEVELS[10].logSize, SCALE_LEVELS[11].logSize, 0, 1);
+    alpha = constrain(alpha, 0, 1);
+
+    push();
+    translate(width / 2, height / 2);
+
+    // Pulsing rings
+    let pulse = sin(frameCount2 * 0.03) * 0.3 + 0.7;
+    noFill();
+    for (let i = 0; i < 3; i++) {
+        let ringSize = 30 + i * 25 + sin(frameCount2 * 0.02 + i) * 10;
+        stroke(0, 229, 255, (80 - i * 25) * alpha * pulse);
+        strokeWeight(2);
+        ellipse(0, 0, ringSize, ringSize);
+    }
+
+    // Center dot
+    noStroke();
+    fill(0, 229, 255, 255 * alpha);
+    ellipse(0, 0, 10, 10);
+    fill(0, 229, 255, 50 * alpha);
+    ellipse(0, 0, 30, 30);
+
+    // Text
+    fill(0, 229, 255, 255 * alpha);
+    textAlign(CENTER);
+    textSize(18);
+    textFont('Noto Sans SC');
+    text('你在这里', 0, -35);
+
+    textSize(12);
+    fill(158, 153, 184, 200 * alpha);
+    textFont('Noto Sans SC');
+    if (viewerGeoStatus === 'ready') {
+        text(viewerCityLabel + ' · ' + formatLatLon(viewerLat, viewerLon), 0, 50);
+    } else if (viewerGeoStatus === 'naming') {
+        text(viewerCityLabel + ' · ' + formatLatLon(viewerLat, viewerLon), 0, 50);
+    } else if (viewerGeoStatus === 'denied') {
+        text(viewerCityLabel, 0, 48);
+    } else {
+        text(viewerCityLabel || '正在获取你的位置…', 0, 50);
+    }
+
+    textSize(10);
+    fill(0, 229, 255, 130 * alpha);
+    textFont('Orbitron');
+    if (viewerGeoStatus === 'ready' && viewerWarmLine) {
+        textFont('Noto Sans SC');
+        fill(0, 229, 255, 130 * alpha);
+        text(viewerWarmLine, 0, 72);
+    } else if (viewerGeoStatus === 'locating' && viewerWarmLine) {
+        textFont('Noto Sans SC');
+        fill(158, 153, 184, 185 * alpha);
+        text(viewerWarmLine, 0, 72);
+    } else if (viewerGeoStatus === 'denied' && viewerWarmLine) {
+        textFont('Noto Sans SC');
+        fill(158, 153, 184, 185 * alpha);
+        text(viewerWarmLine, 0, 72);
+    } else if (viewerGeoStatus === 'naming') {
+        textFont('Noto Sans SC');
+        fill(158, 153, 184, 175 * alpha);
+        text('正在把你的坐标写成附近的地名与一句问候…', 0, 72);
+    } else {
+        text('银河系旋臂 · 太阳系 · 此刻立足之地', 0, 72);
+    }
+
+    pop();
+}
+
+// --- Scale Transition Label ---
+let lastLevelIndex = -1;
+let transitionAlpha = 0;
+
+function drawScaleTransition(levelIndex) {
+    if (levelIndex !== lastLevelIndex) {
+        lastLevelIndex = levelIndex;
+        transitionAlpha = 255;
+    }
+    if (transitionAlpha > 0) {
+        transitionAlpha -= 2;
+        let level = SCALE_LEVELS[levelIndex];
+        let a = transitionAlpha;
+
+        // Center label
+        textAlign(CENTER, CENTER);
+        noStroke();
+
+        // Background pill
+        let labelW = textWidth(level.name) * 1.5 + 60;
+        fill(5, 5, 16, a * 0.6);
+        rectMode(CENTER);
+        rect(width / 2, height / 2, max(200, labelW), 50, 25);
+
+        // Text
+        fill(0, 229, 255, a);
+        textFont('Noto Sans SC');
+        textSize(18);
+        text(level.name, width / 2, height / 2 - 2);
+
+        // Sub-label
+        fill(255, 213, 79, a * 0.8);
+        textSize(11);
+        textFont('Orbitron');
+        text(level.distance, width / 2, height / 2 + 22);
+
+        rectMode(CORNER);
+    }
+}
+
+// --- UI Updates ---
+function updateScienceCaption(levelIndex) {
+    let el = document.getElementById('scienceHint');
+    if (!el) return;
+    if (!journeyStarted) {
+        el.textContent = '';
+        el.style.opacity = '0';
+        return;
+    }
+    if (levelIndex !== scienceCaptionLevel) {
+        scienceCaptionLevel = levelIndex;
+        scienceCaptionPhaseStartMs = performance.now();
+        el.textContent = SCIENCE_HINTS[levelIndex] || '';
+    }
+    let age = performance.now() - scienceCaptionPhaseStartMs;
+    let cycle = SCI_CAP_FADE_IN_MS + SCI_CAP_HOLD_MS + SCI_CAP_FADE_OUT_MS + SCI_CAP_GAP_MS;
+    age = age % max(1, cycle);
+    let op = 0;
+    if (age < SCI_CAP_FADE_IN_MS) {
+        op = age / SCI_CAP_FADE_IN_MS;
+    } else if (age < SCI_CAP_FADE_IN_MS + SCI_CAP_HOLD_MS) {
+        op = 1;
+    } else if (age < SCI_CAP_FADE_IN_MS + SCI_CAP_HOLD_MS + SCI_CAP_FADE_OUT_MS) {
+        op = 1 - (age - SCI_CAP_FADE_IN_MS - SCI_CAP_HOLD_MS) / SCI_CAP_FADE_OUT_MS;
+    } else {
+        op = 0;
+    }
+    el.style.opacity = String(constrain(op, 0, 1));
+}
+
+function tryPlayAmbientMusic() {
+    if (!ambientMusicEnabled) return;
+    let a = document.getElementById('ambientAudio');
+    if (!a) return;
+
+    a.removeAttribute('crossorigin');
+    a.loop = true;
+    if ('playsInline' in a) a.playsInline = true;
+    a.muted = false;
+    a.defaultMuted = false;
+    a.volume = 0.42;
+
+    if (!a.dataset.ambientLoopHook) {
+        a.dataset.ambientLoopHook = '1';
+        a.addEventListener('ended', function () {
+            if (!ambientMusicEnabled) return;
+            try {
+                a.currentTime = 0;
+            } catch (eR) {}
+            a.play().catch(function () {});
+        });
+    }
+
+    if (!a.dataset.ambientErrHook) {
+        a.dataset.ambientErrHook = '1';
+        a.addEventListener('error', function () {
+            if (a.dataset.ambientUrl === AMBIENT_LOCAL_MP3) return;
+            delete a.dataset.ambientPlayPending;
+            a.src = AMBIENT_LOCAL_MP3;
+            a.dataset.ambientUrl = AMBIENT_LOCAL_MP3;
+            try {
+                a.load();
+            } catch (e2) {}
+            scheduleAmbientPlayWhenReady(a);
+        });
+    }
+
+    if (!a.dataset.ambientUrl) {
+        a.src = AMBIENT_REMOTE_MP3;
+        a.dataset.ambientUrl = AMBIENT_REMOTE_MP3;
+        try {
+            a.load();
+        } catch (e) {}
+    }
+
+    scheduleAmbientPlayWhenReady(a);
+}
+
+function scheduleAmbientPlayWhenReady(a) {
+    function doPlay() {
+        let pr = a.play();
+        if (pr !== undefined && typeof pr.then === 'function') {
+            pr.catch(function (err) {
+                if (err && err.name === 'NotAllowedError') return;
+                if (a.dataset.ambientUrl === AMBIENT_LOCAL_MP3) return;
+                delete a.dataset.ambientPlayPending;
+                a.src = AMBIENT_LOCAL_MP3;
+                a.dataset.ambientUrl = AMBIENT_LOCAL_MP3;
+                try {
+                    a.load();
+                } catch (e2) {}
+                scheduleAmbientPlayWhenReady(a);
+            });
+        }
+    }
+
+    if (a.readyState >= 2) {
+        doPlay();
+    } else if (!a.dataset.ambientPlayPending) {
+        a.dataset.ambientPlayPending = '1';
+        a.addEventListener(
+            'canplay',
+            function () {
+                delete a.dataset.ambientPlayPending;
+                doPlay();
+            },
+            { once: true }
+        );
+    }
+}
+
+function toggleAmbientMusic() {
+    ambientMusicEnabled = !ambientMusicEnabled;
+    let a = document.getElementById('ambientAudio');
+    let btn = document.getElementById('ambientToggleBtn');
+    if (!a || !btn) return;
+    if (ambientMusicEnabled) {
+        tryPlayAmbientMusic();
+        btn.textContent = '乐';
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+        btn.title = '关闭氛围乐（Kevin MacLeod · Ghostpocalypse 6 · CC-BY · incompetech.com）';
+    } else {
+        a.pause();
+        btn.textContent = '静';
+        btn.classList.remove('active');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.title = '开启深空氛围乐';
+    }
+}
+
+function updateUI(levelIndex) {
+    let level = SCALE_LEVELS[levelIndex];
+    document.getElementById('scaleName').textContent = level.name;
+    document.getElementById('scaleDistance').textContent = level.distance;
+
+    // Scale bar
+    let progress = map(levelIndex, 0, SCALE_LEVELS.length - 1, 0, 100);
+    document.getElementById('scaleBar').style.width = progress + '%';
+
+    // Slider thumb position
+    let thumbY = map(currentLogScale, LOG_SCALE_MAX, LOG_SCALE_MIN, 0, 100);
+    document.getElementById('sliderThumb').style.top = thumbY + '%';
+
+    let geoEl = document.getElementById('geoCoords');
+    if (geoEl) {
+        if (levelIndex >= 10) {
+            geoEl.style.display = 'block';
+            let parts = [];
+            if (levelIndex === 11) parts.push('你在这里');
+            if (viewerCityLabel) parts.push(viewerCityLabel);
+            if (viewerGeoStatus === 'naming' || viewerGeoStatus === 'ready') {
+                parts.push(formatLatLon(viewerLat, viewerLon));
+            }
+            if (viewerGeoStatus === 'ready' && viewerWarmLine) {
+                parts.push(viewerWarmLine);
+            } else if (viewerGeoStatus === 'denied' && viewerWarmLine) {
+                parts.push(viewerWarmLine);
+            } else if (viewerGeoStatus === 'locating' && viewerWarmLine) {
+                parts.push(viewerWarmLine);
+            }
+            geoEl.textContent = parts.join(' · ');
+        } else {
+            geoEl.style.display = 'none';
+        }
+    }
+
+    updateScienceCaption(levelIndex);
+}
+
+function closePhilosophyPanel(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    let panel = document.getElementById('philosophyPanel');
+    if (!panel) return;
+    panel.classList.remove('visible');
+    panel.classList.add('panel-dismissed');
+}
+
+function closeSceneGalleryPanel(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    let wrap = document.getElementById('sceneGallery');
+    if (!wrap) return;
+    wrap.classList.add('panel-dismissed');
+}
+
+function updatePhilosophy(index) {
+    let panel = document.getElementById('philosophyPanel');
+    if (!panel || panel.classList.contains('panel-dismissed')) return;
+
+    let data = PHILOSOPHY_DATA[index];
+    panel.classList.remove('visible');
+
+    setTimeout(() => {
+        if (panel.classList.contains('panel-dismissed')) return;
+        document.getElementById('philoTag').textContent = data.tag;
+        document.getElementById('philoQuote').textContent = data.quote;
+        document.getElementById('philoAuthor').textContent = data.author;
+        document.getElementById('knowledgeText').textContent = data.knowledge;
+        panel.classList.add('visible');
+    }, 400);
+}
+
+// --- Controls ---
+function zoomIn() {
+    targetLogScale = max(LOG_SCALE_MIN, targetLogScale - 0.85);
+    animating = true;
+}
+
+function zoomOut() {
+    targetLogScale = min(LOG_SCALE_MAX, targetLogScale + 0.85);
+    animating = true;
+}
+
+function toggleAutoPlay() {
+    autoPlaying = !autoPlaying;
+    let btn = document.getElementById('autoPlayBtn');
+    if (autoPlaying) {
+        btn.classList.add('active');
+        btn.textContent = '⏸';
+        startAnimLoop();
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = '▶';
+    }
+}
+
+function resetJourney() {
+    targetLogScale = LOG_SCALE_MAX;
+    currentLogScale = LOG_SCALE_MAX;
+    autoPlaying = false;
+    document.getElementById('autoPlayBtn').classList.remove('active');
+    document.getElementById('autoPlayBtn').textContent = '▶';
+    animating = true;
+    startAnimLoop();
+}
+
+function showScene(index) {
+    let scene = SCENE_DATA[index];
+    document.getElementById('sceneModalImg').src = scene.img;
+    document.getElementById('sceneModalTitle').textContent = scene.title;
+    document.getElementById('sceneModalDesc').textContent = scene.desc;
+    document.getElementById('sceneModal').classList.add('active');
+}
+
+function closeScene() {
+    document.getElementById('sceneModal').classList.remove('active');
+}
+
+// --- Mouse Wheel Zoom ---
+function mouseWheel(event) {
+    if (!journeyStarted) return;
+    let zoomAmount = event.delta > 0 ? 1 : -1;
+    targetLogScale += zoomAmount * 0.18;
+    targetLogScale = constrain(targetLogScale, LOG_SCALE_MIN, LOG_SCALE_MAX);
+    animating = true;
+    if (!animFrameId) startAnimLoop();
+    return false;
+}
+
+function logScaleToSliderTopPct(logSize) {
+    return ((LOG_SCALE_MAX - logSize) / (LOG_SCALE_MAX - LOG_SCALE_MIN)) * 100;
+}
+
+function snapToScaleLevel(index) {
+    if (!journeyStarted || index < 0 || index >= SCALE_LEVELS.length) return;
+    let log = SCALE_LEVELS[index].logSize;
+    targetLogScale = log;
+    currentLogScale = log;
+    animating = false;
+    lastLevelIndex = -1;
+    transitionAlpha = 255;
+    if (!animFrameId) startAnimLoop();
+}
+
+function buildSliderMilestoneNodes() {
+    let host = document.getElementById('sliderNodes');
+    if (!host) return;
+    host.innerHTML = '';
+    for (let i = 0; i < SCALE_LEVELS.length; i++) {
+        let level = SCALE_LEVELS[i];
+        let btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'slider-node';
+        btn.title = level.name + ' · ' + level.distance;
+        btn.setAttribute('aria-label', '跳转到：' + level.name);
+        btn.style.top = logScaleToSliderTopPct(level.logSize) + '%';
+        btn.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        btn.addEventListener('touchstart', function (e) {
+            e.stopPropagation();
+        }, { passive: true });
+        (function (idx) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                snapToScaleLevel(idx);
+            });
+        })(i);
+        host.appendChild(btn);
+    }
+}
+
+// --- Slider Drag ---
+function setupSliderDrag() {
+    buildSliderMilestoneNodes();
+
+    if (scaleSliderListenersAttached) return;
+    scaleSliderListenersAttached = true;
+
+    let track = document.getElementById('sliderTrack');
+    let thumb = document.getElementById('sliderThumb');
+
+    function startDrag(e) {
+        e.preventDefault();
+        sliderDragging = true;
+        handleDrag(e);
+    }
+
+    function handleDrag(e) {
+        if (!sliderDragging) return;
+        let rect = track.getBoundingClientRect();
+        let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        let y = (clientY - rect.top) / rect.height;
+        y = constrain(y, 0, 1);
+        targetLogScale = map(y, 0, 1, LOG_SCALE_MAX, LOG_SCALE_MIN);
+        animating = true;
+        if (!animFrameId) startAnimLoop();
+    }
+
+    function stopDrag() {
+        sliderDragging = false;
+    }
+
+    thumb.addEventListener('mousedown', startDrag);
+    thumb.addEventListener('touchstart', startDrag, { passive: false });
+    track.addEventListener('mousedown', startDrag);
+    track.addEventListener('touchstart', startDrag, { passive: false });
+    document.addEventListener('mousemove', handleDrag);
+    document.addEventListener('touchmove', handleDrag, { passive: false });
+    document.addEventListener('mouseup', stopDrag);
+    document.addEventListener('touchend', stopDrag);
+}
+
+// --- Start Journey ---
+function startJourney() {
+    journeyStarted = true;
+    tryResolveGeolocation();
+    tryPlayAmbientMusic();
+    document.getElementById('introOverlay').classList.add('fade-out');
+
+    setTimeout(() => {
+        document.getElementById('introOverlay').style.display = 'none';
+        document.getElementById('hudTop').style.opacity = '1';
+        document.getElementById('controlsRight').style.opacity = '1';
+        document.getElementById('scaleSlider').style.opacity = '1';
+        document.getElementById('sceneGallery').style.opacity = '1';
+
+        // Show scene cards with delay
+        let cards = document.querySelectorAll('.scene-card');
+        cards.forEach((card, i) => {
+            setTimeout(() => card.classList.add('visible'), 500 + i * 200);
+        });
+
+        // Start auto zoom
+        targetLogScale = LOG_SCALE_MIN;
+        animating = true;
+        startAnimLoop();
+
+        // Show philosophy
+        setTimeout(() => {
+            updatePhilosophy(0);
+        }, 2000);
+
+        // Setup slider
+        setupSliderDrag();
+    }, 1500);
+}
+
+// --- Intro Stars Animation ---
+function createIntroStars() {
+    let container = document.getElementById('introStars');
+    for (let i = 0; i < 200; i++) {
+        let star = document.createElement('div');
+        star.style.cssText = `
+            position: absolute;
+            width: ${Math.random() * 3 + 1}px;
+            height: ${Math.random() * 3 + 1}px;
+            background: white;
+            border-radius: 50%;
+            left: ${Math.random() * 100}%;
+            top: ${Math.random() * 100}%;
+            opacity: ${Math.random() * 0.8 + 0.2};
+            animation: twinkle ${Math.random() * 3 + 2}s ease-in-out infinite;
+            animation-delay: ${Math.random() * 3}s;
+        `;
+        container.appendChild(star);
+    }
+
+    let style = document.createElement('style');
+    style.textContent = `
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// --- Keyboard Controls ---
+function keyPressed() {
+    if (!journeyStarted) return;
+    if (key === '+' || key === '=') zoomIn();
+    if (key === '-') zoomOut();
+    if (key === ' ') { toggleAutoPlay(); return false; }
+    if (key === 'r' || key === 'R') resetJourney();
+}
+
+// 任意一次点击/触摸后若旅程已开始且音乐仍暂停，再尝试播放（解决「仅自动开始旅程」无用户手势导致静音策略）
+document.addEventListener(
+    'pointerdown',
+    function ambientResumeOnGesture() {
+        if (!journeyStarted || !ambientMusicEnabled) return;
+        let a = document.getElementById('ambientAudio');
+        if (a && a.paused) tryPlayAmbientMusic();
+    },
+    { capture: true, passive: true }
+);
+
+// Init
+createIntroStars();
+</script>
+</body>
+</html>
