@@ -14,7 +14,11 @@ python3 -m http.server 8080
 
 ## GitHub Pages
 
-1. 在本目录已初始化 Git 后，推送到 GitHub 上的**新仓库**（仓库名可自定，例如 `cosmic-journey`）。
+浏览器访问 `https://11010tianyi.github.io/cosmic-journey/cosmic_journey.html` 直达
+
+
+页面配置指南：
+1. 在本目录已初始化 Git 后，推送到 GitHub 上的**新仓库**（仓库名如 `cosmic-journey`）。
 2. 在 GitHub 仓库 **Settings → Pages**：
    - **Build and deployment**：Source 选 **Deploy from a branch**
    - **Branch**：选 `main`（或你用的默认分支），文件夹选 **`/ (root)`**
@@ -28,3 +32,4 @@ python3 -m http.server 8080
 
 - `p5.min.js` 为本地备份；失败时会从 jsDelivr 加载 p5。
 - 场景卡片使用本目录下的 `space_scene_*.jpg`；可选本地氛围乐 `audio/cosmic_ambient.mp3`。
+- 相关性资源集：`相关性资源集/宇宙尺度之旅_全网高相关性项目清单.md`；说明：这个文件是根据宇宙尺度之旅的体验内容，整理的与宇宙尺度之旅相关的全网高相关性项目清单。
