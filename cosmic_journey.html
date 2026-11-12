@@ -2,8 +2,11 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>宇宙尺度之旅 — 从银河系到你</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#050510">
+    <meta name="description" content="从可观测宇宙缩放到你站立的地方。对数尺度、哲学摘引、2076 场景与可选定位问候。">
+    <title>宇宙尺度之旅 — 从可观测宇宙到你</title>
+    <link rel="canonical" href="./" />
     <script src="p5.min.js?v=5" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/p5@1.7.0/lib/p5.min.js'"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,13 +30,23 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        html, body {
+            height: 100%;
+            width: 100%;
+        }
+
         body {
             font-family: 'Noto Sans SC', sans-serif;
             background: var(--cosmos-black);
             color: var(--text-primary);
             overflow: hidden;
             height: 100vh;
+            height: 100dvh;
             width: 100vw;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         /* 画布 + 科普条整体上移，避免顶栏与主画面挤在一起 */
@@ -54,6 +67,7 @@
             width: 100%;
             height: 100%;
             pointer-events: auto;
+            touch-action: none;
         }
 
         .cosmic-stage #canvas-container canvas {
@@ -102,10 +116,19 @@
         }
 
         .scale-distance {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 13px;
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 12px;
+            color: var(--text-secondary);
+            letter-spacing: 0.2px;
+            margin-top: 2px;
+        }
+
+        .scale-live {
+            font-family: 'Orbitron', 'Noto Sans SC', sans-serif;
+            font-size: 14px;
             color: var(--star-gold);
-            letter-spacing: 1px;
+            letter-spacing: 0.4px;
+            margin-top: 4px;
         }
 
         .scale-geo {
@@ -115,8 +138,9 @@
             letter-spacing: 0.5px;
             margin-top: 8px;
             line-height: 1.45;
-            max-width: 300px;
+            max-width: 100%;
             opacity: 0.92;
+            overflow-wrap: anywhere;
         }
 
         /* 顶部居中：当前尺度科普（无底框，靠字重与阴影压在星场上） */
@@ -134,16 +158,16 @@
             font-weight: 500;
             line-height: 1.75;
             letter-spacing: 0.04em;
-            color: rgba(62, 76, 98, 0.96);
+            color: rgba(236, 238, 248, 0.96);
             background: none;
             border: none;
             box-shadow: none;
             pointer-events: none;
             opacity: 0;
             text-shadow:
-                0 0 22px rgba(5, 6, 18, 0.92),
-                0 0 40px rgba(5, 6, 18, 0.75),
-                0 2px 3px rgba(5, 6, 18, 0.55);
+                0 0 16px rgba(5, 6, 18, 0.95),
+                0 1px 2px rgba(5, 6, 18, 0.9),
+                0 0 28px rgba(5, 6, 18, 0.75);
         }
 
         @media (max-width: 768px) {
@@ -327,6 +351,14 @@
 
         .ctrl-btn:active { transform: scale(0.95); }
 
+        .ctrl-btn,
+        .slider-node,
+        .intro-start-btn,
+        .corner-close-btn,
+        .scene-card {
+            touch-action: manipulation;
+        }
+
         .ctrl-btn-compact {
             font-family: 'Noto Sans SC', sans-serif;
             font-size: 10px;
@@ -383,10 +415,10 @@
         .slider-node {
             position: absolute;
             left: 50%;
-            width: 11px;
-            height: 11px;
-            margin-left: -5.5px;
-            margin-top: -5.5px;
+            width: 16px;
+            height: 16px;
+            margin-left: -8px;
+            margin-top: -8px;
             border-radius: 50%;
             background: rgba(158, 153, 184, 0.55);
             border: 2px solid var(--cosmos-black);
@@ -395,6 +427,12 @@
             pointer-events: auto;
             z-index: 4;
             transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .slider-node::after {
+            content: '';
+            position: absolute;
+            inset: -12px;
         }
 
         .slider-node:hover {
@@ -408,8 +446,8 @@
         }
 
         .scale-slider-thumb {
-            width: 20px;
-            height: 20px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             background: var(--accent-cyan);
             border: 3px solid var(--cosmos-black);
@@ -420,6 +458,13 @@
             box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
             transition: box-shadow 0.2s;
             z-index: 5;
+            touch-action: none;
+        }
+
+        .scale-slider-thumb::after {
+            content: '';
+            position: absolute;
+            inset: -14px;
         }
 
         .scale-slider-thumb:hover {
@@ -597,20 +642,25 @@
             cursor: pointer;
         }
 
-        .scene-modal.active { display: flex; }
+        .scene-modal.active {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            padding: 20px 16px;
+        }
 
         .scene-modal img {
-            max-width: 80vw;
-            max-height: 70vh;
+            max-width: min(92vw, 1100px);
+            max-height: min(62vh, 70dvh);
             border-radius: 16px;
             border: 1px solid var(--glass-border);
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
 
         .scene-modal-caption {
-            position: absolute;
-            bottom: 60px;
+            position: static;
             text-align: center;
+            padding: 0 8px 8px;
         }
 
         .scene-modal-caption h3 {
@@ -625,19 +675,259 @@
             max-width: 500px;
         }
 
-        /* Responsive */
-        @media (max-width: 768px) {
-            .philosophy-panel { max-width: calc(100vw - 60px); left: 15px; bottom: 15px; padding: 16px; }
-            .scene-gallery-outer { right: 15px; bottom: 15px; }
-            .scene-gallery { flex-direction: column; }
-            .scene-card { width: 140px; }
-            .scale-slider-container { display: none; }
-            .controls-right { right: 15px; }
-            .hud-top { padding: 15px; }
-            .scale-indicator { min-width: auto; padding: 12px 16px; }
-            .scale-name { font-size: 18px; }
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 28px;
+            transform: translateX(-50%) translateY(10px);
+            z-index: 80;
+            max-width: min(88vw, 420px);
+            padding: 10px 16px;
+            border-radius: 999px;
+            background: rgba(8, 12, 32, 0.94);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            font-size: 14px;
+            line-height: 1.4;
+            text-align: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .touch-coach {
+            position: fixed;
+            left: 50%;
+            bottom: calc(178px + env(safe-area-inset-bottom));
+            transform: translateX(-50%);
+            z-index: 12;
+            max-width: min(86vw, 360px);
+            padding: 10px 14px;
+            border-radius: 14px;
+            background: rgba(8, 12, 32, 0.88);
+            border: 1px solid var(--glass-border);
+            color: var(--text-primary);
+            font-size: 13px;
+            line-height: 1.5;
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .touch-coach[hidden] { display: none; }
+
+        button:focus-visible,
+        .scene-card:focus-visible,
+        .slider-node:focus-visible {
+            outline: 2px solid var(--accent-cyan);
+            outline-offset: 2px;
+        }
+
+        /* Responsive — phones, small tablets, and short landscape */
+        @media (max-width: 900px), (max-height: 520px) {
+            .cosmic-stage {
+                top: 0;
+                height: 100%;
+                height: 100dvh;
+            }
+
+            .hud-top {
+                padding: max(10px, env(safe-area-inset-top)) 10px 0 max(10px, env(safe-area-inset-left));
+            }
+
+            .scale-indicator {
+                min-width: 0;
+                max-width: min(78vw, 340px);
+                padding: 10px 12px;
+                border-radius: 12px;
+            }
+
+            .scale-title { letter-spacing: 1.5px; margin-bottom: 2px; }
+            .scale-name { font-size: 18px; line-height: 1.25; }
+            .scale-distance { font-size: 12px; }
+            .scale-live { font-size: 11px; }
+            .scale-geo { max-width: 100%; font-size: 11px; }
+
+            .science-hint {
+                top: 158px;
+                max-width: min(92vw, 520px);
+                font-size: 13px;
+                line-height: 1.55;
+                padding: 4px 12px;
+                display: -webkit-box;
+                -webkit-line-clamp: 3;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+
+            .controls-right {
+                right: auto;
+                left: max(8px, env(safe-area-inset-left));
+                top: auto;
+                bottom: calc(72px + env(safe-area-inset-bottom));
+                transform: none;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 8px;
+                width: auto;
+                max-width: calc(100vw - 16px);
+                margin: 0 auto;
+                right: max(8px, env(safe-area-inset-right));
+            }
+
+            .ctrl-btn {
+                width: 44px;
+                height: 44px;
+                border-radius: 12px;
+                font-size: 18px;
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+                background: rgba(8, 10, 28, 0.9);
+            }
+
+            .ctrl-btn:hover { transform: none; }
+
+            .scale-slider-container {
+                display: block;
+                left: max(18px, env(safe-area-inset-left));
+                right: max(18px, env(safe-area-inset-right));
+                top: auto;
+                bottom: calc(8px + env(safe-area-inset-bottom));
+                transform: none;
+                width: auto;
+                touch-action: none;
+            }
+
+            .scale-slider-stack {
+                width: 100%;
+                height: 44px;
+            }
+
+            .scale-slider-track {
+                left: 10px;
+                right: 10px;
+                top: 50%;
+                width: auto;
+                height: 4px;
+                transform: translateY(-50%);
+            }
+
+            .scale-labels { display: none; }
+
+            .scale-slider-thumb,
+            .slider-node {
+                top: 50%;
+            }
+
+            .philosophy-panel,
+            .scene-card,
+            .scale-indicator,
+            .corner-close-btn {
+                backdrop-filter: none;
+                -webkit-backdrop-filter: none;
+            }
+
+            .scale-indicator { background: rgba(8, 10, 28, 0.88); }
+
+            .philosophy-panel {
+                left: 10px;
+                right: 10px;
+                bottom: calc(128px + env(safe-area-inset-bottom));
+                max-width: none;
+                max-height: min(34vh, 240px);
+                overflow: auto;
+                padding: 14px 36px 12px 14px;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .philosophy-quote { font-size: 15px; line-height: 1.65; }
+            .knowledge-text { font-size: 13px; }
+
+            .scene-gallery-outer {
+                left: 10px;
+                right: 10px;
+                bottom: calc(128px + env(safe-area-inset-bottom));
+                align-items: stretch;
+                max-width: none;
+            }
+
+            .scene-gallery {
+                flex-direction: row;
+                gap: 8px;
+                overflow-x: auto;
+                max-width: 100%;
+                padding-bottom: 4px;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .scene-card { width: 148px; flex: 0 0 148px; }
+            .scene-card img { height: 78px; }
+            .scene-card:hover { transform: none; }
+
             .intro-title { font-size: 32px; padding: 0 20px; }
-            .intro-subtitle { font-size: 14px; padding: 0 30px; }
+            .intro-subtitle { font-size: 14px; padding: 0 22px; margin-bottom: 28px; }
+            .intro-start-btn {
+                min-height: 48px;
+                padding: 14px 28px;
+            }
+
+            .toast {
+                bottom: calc(178px + env(safe-area-inset-bottom));
+            }
+
+            .scene-modal-caption h3 { font-size: 18px; }
+            .scene-modal-caption p { font-size: 13px; max-width: 92vw; }
+        }
+
+        @media (max-width: 900px) and (orientation: landscape), (max-height: 430px) {
+            .scale-title { display: none; }
+            .scale-name { font-size: 16px; margin-bottom: 0; }
+            .scale-indicator { max-width: min(46vw, 300px); }
+            .scale-geo {
+                max-height: 2.6em;
+                overflow: hidden;
+                margin-top: 4px;
+            }
+            .science-hint {
+                top: max(8px, env(safe-area-inset-top));
+                right: max(12px, env(safe-area-inset-right));
+                left: auto;
+                transform: none;
+                text-align: right;
+                max-width: min(42vw, 340px);
+                font-size: 12px;
+                -webkit-line-clamp: 2;
+            }
+            .touch-coach { display: none; }
+            .controls-right { bottom: calc(54px + env(safe-area-inset-bottom)); }
+            .ctrl-btn { width: 40px; height: 40px; }
+            .scale-slider-stack { height: 36px; }
+            .philosophy-panel,
+            .scene-gallery-outer {
+                bottom: calc(102px + env(safe-area-inset-bottom));
+                max-height: 28vh;
+            }
+            .intro-title { font-size: 26px; margin-bottom: 8px; }
+            .intro-subtitle { font-size: 13px; margin-bottom: 16px; }
+        }
+
+        @media (min-width: 901px) and (max-height: 820px) {
+            .scale-slider-stack { height: min(420px, 52vh); }
+            .ctrl-btn { width: 42px; height: 42px; }
+            .controls-right {
+                gap: 6px;
+                display: grid;
+                grid-template-columns: 42px 42px;
+                top: 46%;
+            }
+            .philosophy-panel { max-width: 360px; padding: 16px; }
+            .scene-card { width: 150px; }
+            .scene-card img { height: 78px; }
         }
     </style>
 </head>
@@ -648,11 +938,12 @@
     <div class="intro-stars" id="introStars"></div>
     <div class="intro-title">宇宙尺度之旅</div>
     <div class="intro-subtitle">
-        从银河系的旋臂出发，穿越星际尘埃，掠过太阳系，<br>
-        降落在你此刻所在的位置——<br>
-        一场跨越 10²¹ 米的旅程
+        从可观测宇宙的尺度出发，穿过超星系团与银河旋臂，<br>
+        掠过太阳系，降落在你此刻站立的地方。<br>
+        大约二十六个数量级：从 10²⁷ 米到几米。<br>
+        手机双指捏合或上下滑动；桌面用滚轮、滑杆或方向键。空格键自动播放。
     </div>
-    <button class="intro-start-btn" onclick="startJourney()">开始旅程</button>
+    <button class="intro-start-btn" type="button" onclick="startJourney()">开始旅程</button>
 </div>
 
 <!-- 深空氛围乐：不在此写 crossorigin，避免远程 MP3 无 CORS 头导致整段无法解码；src 由脚本在用户手势内赋值 -->
@@ -668,8 +959,9 @@
 <div class="hud-top" id="hudTop" style="opacity:0; transition: opacity 0.5s;">
     <div class="scale-indicator">
         <div class="scale-title">当前尺度</div>
-        <div class="scale-name" id="scaleName">银河系</div>
-        <div class="scale-distance" id="scaleDistance">~100,000 光年</div>
+        <div class="scale-name" id="scaleName">可观测宇宙</div>
+        <div class="scale-live" id="scaleLive">此刻 ≈ 10²⁷ 米</div>
+        <div class="scale-distance" id="scaleDistance">参照 ~930亿光年</div>
         <div class="scale-geo" id="geoCoords" style="display: none;"></div>
         <div class="scale-bar-container">
             <div class="scale-bar-fill" id="scaleBar" style="width: 0%"></div>
@@ -691,12 +983,16 @@
 
 <!-- Right Controls -->
 <div class="controls-right" id="controlsRight" style="opacity:0; transition: opacity 0.5s;">
-    <button class="ctrl-btn" onclick="zoomIn()" title="放大">+</button>
-    <button class="ctrl-btn" onclick="zoomOut()" title="缩小">−</button>
-    <button class="ctrl-btn" onclick="toggleAutoPlay()" id="autoPlayBtn" title="自动播放">▶</button>
-    <button class="ctrl-btn" onclick="resetJourney()" title="重置">⟲</button>
-    <button class="ctrl-btn" onclick="cycleBackdropMode()" id="physBackdropBtn" title="背景：艺术星场（点击切换：物理 / 全关）" aria-pressed="false" style="font-size:13px;font-weight:600;">物</button>
+    <button class="ctrl-btn" type="button" onclick="zoomIn()" title="放大（更靠近你）" aria-label="放大">+</button>
+    <button class="ctrl-btn" type="button" onclick="zoomOut()" title="缩小（更靠近宇宙）" aria-label="缩小">−</button>
+    <button class="ctrl-btn" type="button" onclick="toggleAutoPlay()" id="autoPlayBtn" title="自动播放（空格键）" aria-label="自动播放">▶</button>
+    <button class="ctrl-btn" type="button" onclick="resetJourney()" title="回到可观测宇宙" aria-label="重置">⟲</button>
+    <button class="ctrl-btn" type="button" onclick="cycleBackdropMode()" id="physBackdropBtn" title="背景：艺术星场（点击切换：物理 / 全关）" aria-pressed="false" style="font-size:13px;font-weight:600;">物</button>
     <button class="ctrl-btn active" type="button" onclick="toggleAmbientMusic()" id="ambientToggleBtn" title="关闭氛围乐（Kevin MacLeod · Ghostpocalypse 6 · CC-BY · incompetech.com）" aria-pressed="true" style="font-size:14px;font-weight:600;">乐</button>
+    <button class="ctrl-btn" type="button" onclick="toggleFullscreen()" id="fullscreenBtn" title="全屏（F）" aria-label="全屏">全</button>
+    <button class="ctrl-btn" type="button" onclick="shareJourney()" title="复制或分享当前尺度的链接" aria-label="分享链接">链</button>
+    <button class="ctrl-btn" type="button" onclick="togglePhilosophyPanel(event)" id="philoToggleBtn" title="哲学与知识" aria-label="打开哲学与知识">哲</button>
+    <button class="ctrl-btn" type="button" onclick="toggleSceneGallery(event)" id="sceneToggleBtn" title="2076 场景" aria-label="打开 2076 场景">景</button>
 </div>
 
 <!-- Scale Slider -->
@@ -743,6 +1039,9 @@
     </div>
 </div>
 
+<div id="touchCoach" class="touch-coach" hidden>双指捏合，或在画面上上下滑动来缩放。底栏圆点可跳到某一站。</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
 <!-- Scene Modal -->
 <div class="scene-modal" id="sceneModal" onclick="closeScene()">
     <img id="sceneModalImg" src="" alt="太空场景">
@@ -759,44 +1058,44 @@
 
 // --- Scale Levels (log10 of size in meters) ---
 const SCALE_LEVELS = [
-    { name: "可观测宇宙", logSize: 27, distance: "~930亿光年", color: [20, 10, 60] },
-    { name: "超星系团", logSize: 25, distance: "~2.5亿光年", color: [30, 15, 70] },
-    { name: "银河系", logSize: 21, distance: "~10万光年", color: [40, 20, 80] },
-    { name: "太阳系邻域", logSize: 17, distance: "~10光年", color: [20, 30, 60] },
-    { name: "奥尔特云", logSize: 15.5, distance: "~1光年", color: [15, 25, 50] },
-    { name: "太阳系", logSize: 13, distance: "~90亿公里", color: [25, 35, 55] },
-    { name: "地球轨道", logSize: 11.5, distance: "~1.5亿公里", color: [20, 40, 70] },
-    { name: "地月系统", logSize: 9, distance: "~38.4万公里", color: [30, 50, 80] },
-    { name: "地球", logSize: 7, distance: "~12,742公里", color: [30, 80, 120] },
-    { name: "亚洲大陆", logSize: 6.3, distance: "~4,400公里", color: [40, 100, 80] },
-    { name: "城市", logSize: 4.5, distance: "~30公里", color: [60, 80, 100] },
-    { name: "你在这里", logSize: 1.5, distance: "~3米", color: [80, 120, 160] },
+    { id: "observable", name: "可观测宇宙", logSize: 27, distance: "~930亿光年", color: [20, 10, 60] },
+    { id: "supercluster", name: "超星系团", logSize: 24.7, distance: "~数亿光年", color: [30, 15, 70] },
+    { id: "milky-way", name: "银河系", logSize: 21, distance: "~10万光年", color: [40, 20, 80] },
+    { id: "neighborhood", name: "太阳系邻域", logSize: 17, distance: "~10光年", color: [20, 30, 60] },
+    { id: "oort", name: "奥尔特云", logSize: 16, distance: "~1光年", color: [15, 25, 50] },
+    { id: "solar-system", name: "太阳系", logSize: 13, distance: "~90亿公里", color: [25, 35, 55] },
+    { id: "earth-orbit", name: "地球轨道", logSize: 11.5, distance: "~3亿公里跨度", color: [20, 40, 70] },
+    { id: "earth-moon", name: "地月系统", logSize: 8.6, distance: "~38.4万公里", color: [30, 50, 80] },
+    { id: "earth", name: "地球", logSize: 7.1, distance: "~12,742公里", color: [30, 80, 120] },
+    { id: "asia", name: "亚洲大陆", logSize: 6.5, distance: "~数千公里", color: [40, 100, 80] },
+    { id: "city", name: "城市", logSize: 4.5, distance: "~30公里", color: [60, 80, 100] },
+    { id: "you", name: "你在这里", logSize: 0.5, distance: "~3米", color: [80, 120, 160] },
 ];
 
 const LOG_SCALE_MAX = 27;
-const LOG_SCALE_MIN = 1.5;
+const LOG_SCALE_MIN = 0.5;
 
 /** 每个尺度档一条短科普（渐入渐出展示） */
 const SCIENCE_HINTS = [
-    '可观测宇宙：以光速行进的信号所能抵达的最大范围；其边缘并非「墙」，而是我们观测与因果的视界。',
-    '超星系团：星系在引力作用下聚集成的巨型结构，跨度可达数亿光年；银河系属于拉尼亚凯亚超星系团的一部分。',
-    '银河系：棒旋星系，直径约十万光年；恒星绕银心公转，星际气体与尘埃在旋臂中孕育新一代恒星。',
-    '太阳系邻域：太阳周围数十光年内的恒星与星际介质；我们看到的「附近」恒星大多在数光年到十余光年之外。',
-    '奥尔特云：太阳系最外围的彗星储库，呈球壳状分布；长周期彗星往往由此被扰动进入内太阳系。',
-    '太阳系：八大行星沿椭圆轨道绕日公转；此示意未按比例，但可看出内行星致密、外行星稀疏的总体格局。',
-    '地球轨道：地球以约 1 天文单位的平均距离绕太阳公转；黄道面是行星轨道近似共面的参考平面。',
-    '地月系统：月球绕地球公转，同一面长期朝向地球（潮汐锁定）；地月距离约 38 万公里，本画面仅为示意。',
-    '地球：蓝色行星拥有液态水海洋与富含氮氧的大气；大陆与洋壳在板块运动中缓慢重塑地表。',
-    '亚洲大陆：世界面积最大的洲，地形从高原、沙漠到季风平原极为多样；人类城市与农业景观在此高度集中。',
-    '城市：道路网、建筑群与夜间灯光是人类活动的空间印记；尺度从公里到米，个体生活发生在街区与房间之中。',
-    '你在这里：在宇宙 log 尺度上，「几米」几乎与零无异；但意识与记忆使这一微小区域成为全部经验的中心。'
+    '可观测宇宙：常被说成直径约 930 亿光年的共动尺度。边缘不是一堵墙，而是光与因果还能抵达我们的视界。',
+    '超星系团：星系聚成的大结构，跨度是数亿光年这一量级。银河系所在的拉尼亚凯亚，就是这样一个超星系团。',
+    '银河系：棒旋星系，银盘直径约十万光年量级。恒星绕银心公转，气体和尘埃在旋臂里形成新的恒星。',
+    '太阳系邻域：太阳周围大约十光年这一档的恒星与星际介质。最近的恒星比邻星，大约 4.2 光年外。',
+    '奥尔特云：太阳系外围的彗星储库，外缘常被估到约 1 光年量级。长周期彗星多半从这里被扰动进来。',
+    '太阳系：这一站大约是 10¹³ 米、数十天文单位（约 90 亿公里）。八大行星的轨道只是示意，没有按真实比例。',
+    '地球轨道：日地平均距离约 1 天文单位（约 1.5 亿公里）。轨道本身的跨度大约是这个距离的两倍，画面未按比例。',
+    '地月系统：地月平均距离约 38.4 万公里。月球被潮汐锁定，长期以同一面朝向地球。距离与大小都只是示意。',
+    '地球：平均直径约 12,742 公里。有液态水海洋和以氮氧为主的大气，地表在板块运动中缓慢改变。',
+    '亚洲大陆：面积最大的洲，东西跨度大约是近万公里量级。这一站停在「数千公里」，不是精确地图。',
+    '城市：这一站大约几十公里。路网、建筑和灯光是人类活动的印记，具体生活发生在更小的街区里。',
+    '你在这里：这一站大约几米，和一个人加上身边的一小块地面同一量级。在对数尺上它几乎贴着零，却是经验发生的地方。'
 ];
 
 /** 科普条动画（毫秒，与帧率无关）；全暗间隔 6.4s */
-const SCI_CAP_FADE_IN_MS = 1500;
-const SCI_CAP_HOLD_MS = 5000;
-const SCI_CAP_FADE_OUT_MS = 1700;
-const SCI_CAP_GAP_MS = 6400;
+const SCI_CAP_FADE_IN_MS = 700;
+const SCI_CAP_HOLD_MS = 4600;
+const SCI_CAP_FADE_OUT_MS = 900;
+const SCI_CAP_GAP_MS = 1600;
 let scienceCaptionLevel = -1;
 let scienceCaptionPhaseStartMs = 0;
 
@@ -849,7 +1148,7 @@ const PHILOSOPHY_DATA = [
         tag: "宇宙知识",
         quote: `光从太阳到达地球需要8分20秒，但从银河系中心到达太阳需要约26,000年。`,
         author: "—— 天文物理学基本事实",
-        knowledge: "太阳位于银河系猎户臂上，距银河系中心约26,000光年。银河系直径约10万光年，包含约1500个球状星团和数十亿颗恒星。"
+        knowledge: "太阳在银河系猎户臂附近，距银心约 2.6 万光年。银盘直径约 10 万光年量级，恒星大约是数千亿颗。已知球状星团一百多个，总数通常估计在两百个上下。"
     },
     {
         tag: "太空哲学",
@@ -867,13 +1166,13 @@ const PHILOSOPHY_DATA = [
         tag: "太空哲学",
         quote: `人类的存在是宇宙认识自身的一种方式。`,
         author: "—— 艾伦·瓦茨",
-        knowledge: "人脑包含约860亿个神经元，其连接数量超过可观测宇宙中的恒星总数。意识可能是宇宙演化出的最复杂的现象。"
+        knowledge: "人脑神经元大约是八百六十亿这一量级。突触连接大约 10¹⁴ 条，多于银河系里的恒星（约 10¹¹ 颗），但远少于整个可观测宇宙中的恒星。"
     },
     {
         tag: "宇宙知识",
-        quote: `如果你把太阳缩小到一个白细胞的大小，银河系的大小大约相当于整个美国大陆。`,
+        quote: `若把太阳缩成白细胞那么小，银盘大约会落到和地球直径同一个数量级。`,
         author: "—— 尺度类比",
-        knowledge: "太阳的直径约139万公里，而银河系的直径约10万光年（约9.46×10¹⁷公里）。两者相差约7个数量级——这就是宇宙尺度的惊人之处。"
+        knowledge: "太阳直径约 140 万公里，银盘直径约 10 万光年（约 10¹⁸ 公里），两者大约相差 12 个数量级。缩到约 10 微米的太阳后，银盘大约是数千到一万公里，和地球直径同一量级。"
     },
     {
         tag: "太空哲学",
@@ -909,6 +1208,8 @@ let animating = false;
 let autoPlaying = false;
 let autoPlayDir = -1; // -1 = zooming in, 1 = zooming out
 let journeyStarted = false;
+/** One-way opening cruise. Moves about one order of magnitude per second so each station can be read. */
+let openingCruise = false;
 let stars = [];
 let nebulaClouds = [];
 let solarSystemBodies = [];
@@ -931,6 +1232,95 @@ let viewerLon = 0;
 let viewerCityLabel = '';
 let viewerWarmLine = '';
 let geoHintTried = false;
+let spaceGradient = null;
+let lastCanvasW = 0;
+let lastCanvasH = 0;
+let lastDrawMs = 0;
+let lastPhiloMs = 0;
+let transitionStartMs = 0;
+let zoomingFast = false;
+let uiCache = { name: '', dist: '', live: '', geo: '', bar: -1 };
+let resumeApplied = false;
+let coachTimer = 0;
+
+const COARSE_POINTER = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900;
+const RENDER = {
+    pixelDensity: COARSE_POINTER ? 1 : Math.min(2, window.devicePixelRatio || 1),
+    stars: COARSE_POINTER ? 1100 : 2800,
+    galaxy: COARSE_POINTER ? 1400 : 3000,
+    nebula: COARSE_POINTER ? 7 : 14,
+    cityLights: COARSE_POINTER ? 90 : 200,
+    nebulaSteps: COARSE_POINTER ? 4 : 6
+};
+
+function clamp(v, lo, hi) {
+    return Math.max(lo, Math.min(hi, v));
+}
+
+function layoutIsCompact() {
+    return window.matchMedia('(max-width: 900px), (max-height: 520px)').matches;
+}
+
+function syncLayoutMode() {
+    document.body.classList.toggle('layout-compact', layoutIsCompact());
+}
+
+function viewScale() {
+    const m = Math.min(width, height);
+    return Math.max(0.34, Math.min(1, m / 860));
+}
+
+function contentShiftY() {
+    if (!layoutIsCompact()) return 0;
+    if (window.innerHeight < 520) return -height * 0.05;
+    return -height * 0.035;
+}
+
+const SUPERSCRIPT_DIGITS = { '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻' };
+
+function toSuperscript(intString) {
+    return String(intString).split('').map(function (ch) { return SUPERSCRIPT_DIGITS[ch] || ch; }).join('');
+}
+
+function formatLiveMeters(log) {
+    const exp = Math.round(log * 10) / 10;
+    const parts = exp.toFixed(1).split('.');
+    const head = '此刻 ≈ 10' + toSuperscript(parts[0]);
+    if (parts[1] === '0') return head + ' 米';
+    return head + '·' + toSuperscript(parts[1]) + ' 米';
+}
+
+let hintPlaceAt = 0;
+function placeScienceHint() {
+    const hint = document.getElementById('scienceHint');
+    if (!hint) return;
+    const now = performance.now();
+    if (now - hintPlaceAt < 250) return;
+    hintPlaceAt = now;
+    if (!layoutIsCompact() || window.innerHeight < 460) {
+        hint.style.top = '';
+        return;
+    }
+    const hud = document.querySelector('.scale-indicator');
+    if (!hud) return;
+    const bottom = hud.getBoundingClientRect().bottom;
+    hint.style.top = Math.round(bottom + 14) + 'px';
+}
+
+function toast(message) {
+    const el = document.getElementById('toast');
+    if (!el) return;
+    el.textContent = message;
+    el.classList.add('show');
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { el.classList.remove('show'); }, 2200);
+}
+
+function hideTouchCoach() {
+    const el = document.getElementById('touchCoach');
+    if (el) el.hidden = true;
+    clearTimeout(coachTimer);
+}
 
 // --- Blackbody-ish star color from effective temperature (K), schematic ---
 function blackbodyRGB(Teff) {
@@ -1032,14 +1422,14 @@ function tryResolveGeolocation() {
         geoHintTried = true;
         viewerGeoStatus = 'denied';
         viewerCityLabel = '无法使用定位';
-        viewerWarmLine = '当前环境不支持地理位置，将无法显示你所在的城市与坐标。';
+        viewerWarmLine = '这个环境不能定位。';
         refreshGeoHud();
         return;
     }
     geoHintTried = true;
     viewerGeoStatus = 'locating';
     viewerCityLabel = '正在获取你的位置…';
-    viewerWarmLine = '若浏览器询问权限，请选择「允许」以显示真实城市与经纬度。';
+    viewerWarmLine = '允许位置后，会显示城市和经纬度。';
     refreshGeoHud();
     navigator.geolocation.getCurrentPosition(
         function (pos) {
@@ -1056,8 +1446,7 @@ function tryResolveGeolocation() {
             viewerLat = 0;
             viewerLon = 0;
             viewerCityLabel = '定位未开启';
-            viewerWarmLine =
-                '在浏览器设置中允许「位置」权限后，这里会显示你所在的城市、真实经纬度，和一句此刻专属于你的问候。';
+            viewerWarmLine = '允许位置权限后，会显示城市和经纬度。';
             refreshGeoHud();
         },
         { enableHighAccuracy: false, timeout: 12000, maximumAge: 300000 }
@@ -1070,8 +1459,8 @@ function regenerateAmbientField() {
         nebulaClouds = [];
         return;
     }
-    generateStars(3000);
-    generateNebulaClouds(backdropMode === 1 ? 10 : 15);
+    generateStars(RENDER.stars);
+    generateNebulaClouds(backdropMode === 1 ? Math.max(6, Math.round(RENDER.nebula * 0.7)) : RENDER.nebula);
 }
 
 function cycleBackdropMode() {
@@ -1104,14 +1493,21 @@ function preload() {
 }
 
 function setup() {
+    pixelDensity(RENDER.pixelDensity);
     let canvas = createCanvas(windowWidth, windowHeight);
     canvas.parent('canvas-container');
-    generateStars(3000);
-    generateNebulaClouds(15);
-    generateGalaxyParticles(3000);
+    noLoop();
+    lastCanvasW = windowWidth;
+    lastCanvasH = windowHeight;
+    generateStars(RENDER.stars);
+    generateNebulaClouds(RENDER.nebula);
+    generateGalaxyParticles(RENDER.galaxy);
     generateSolarSystem();
     generateEarthFeatures();
     generateCityLights();
+    buildSpaceGradient();
+    syncLayoutMode();
+    attachCanvasGestures(canvas.elt);
     stopAnimLoop();
     draw();
 
@@ -1125,7 +1521,16 @@ function setup() {
 
 function windowResized() {
     resizeCanvas(windowWidth, windowHeight);
-    if (journeyStarted) regenerateAmbientField();
+    syncLayoutMode();
+    const dw = Math.abs(windowWidth - lastCanvasW);
+    const dh = Math.abs(windowHeight - lastCanvasH);
+    lastCanvasW = windowWidth;
+    lastCanvasH = windowHeight;
+    if (dw > 80 || dh > 80 || !spaceGradient) buildSpaceGradient();
+    layoutSlider();
+    hintPlaceAt = 0;
+    placeScienceHint();
+    if (journeyStarted && (dw > 140 || dh > 140)) regenerateAmbientField();
 }
 
 // Custom animation loop using requestAnimationFrame (more reliable than p5's loop())
@@ -1148,24 +1553,49 @@ function stopAnimLoop() {
 }
 
 function draw() {
+    resetMatrix();
     frameCount2++;
+    const nowMs = performance.now();
+    let dt = lastDrawMs ? (nowMs - lastDrawMs) / 1000 : 1 / 60;
+    lastDrawMs = nowMs;
+    dt = clamp(dt, 0.001, 0.05);
+
     background(5, 5, 16);
 
-    // Smooth interpolation (slower = gentler zoom / slider follow)
-    let lerpSpeed = 0.018;
-    if (animating) lerpSpeed = 0.011;
-    currentLogScale += (targetLogScale - currentLogScale) * lerpSpeed;
-
-    if (abs(currentLogScale - targetLogScale) < 0.01) {
-        currentLogScale = targetLogScale;
+    if (openingCruise) {
+        // Constant log speed, so the Milky Way is not a blur on the way to the city.
+        const next = currentLogScale - 1.15 * dt;
+        if (next <= LOG_SCALE_MIN) {
+            currentLogScale = LOG_SCALE_MIN;
+            targetLogScale = LOG_SCALE_MIN;
+            openingCruise = false;
+        } else {
+            currentLogScale = next;
+            targetLogScale = next;
+        }
         animating = false;
+        zoomingFast = false;
+    } else {
+        // Frame-rate independent ease. tau is the time to close most of the gap.
+        const tau = animating ? 0.42 : 0.34;
+        const k = 1 - Math.exp(-dt / tau);
+        currentLogScale += (targetLogScale - currentLogScale) * k;
+        zoomingFast = Math.abs(targetLogScale - currentLogScale) > 0.28;
+
+        if (Math.abs(currentLogScale - targetLogScale) < 0.012) {
+            currentLogScale = targetLogScale;
+            animating = false;
+            zoomingFast = false;
+        }
     }
 
     // Determine current scale level
     let levelIndex = getCurrentLevelIndex();
 
-    // Draw layers based on scale
+    // Draw layers based on scale. Shift the art above the phone dock.
     drawDeepSpace();
+    const shift = contentShiftY();
+    if (shift) translate(0, shift);
     drawNebulae(levelIndex);
     drawStars(levelIndex);
     drawGalaxy(levelIndex);
@@ -1175,21 +1605,22 @@ function draw() {
     drawYouMarker(levelIndex);
 
     // Update UI
-    updateUI(levelIndex);
+    const displayIndex = displayedLevelIndex(levelIndex);
+    updateUI(displayIndex);
 
     // Draw scale transition label in center
-    drawScaleTransition(levelIndex);
+    drawScaleTransition(displayIndex);
 
-    // Auto play
-    if (autoPlaying && frameCount2 % 2 === 0) {
-        targetLogScale += autoPlayDir * 0.032;
+    // Auto play, about 0.9 log-units per second
+    if (autoPlaying) {
+        targetLogScale += autoPlayDir * 0.9 * dt;
         if (targetLogScale <= LOG_SCALE_MIN) { targetLogScale = LOG_SCALE_MIN; autoPlayDir = 1; }
         if (targetLogScale >= LOG_SCALE_MAX) { targetLogScale = LOG_SCALE_MAX; autoPlayDir = -1; }
     }
 
-    // Philosophy rotation
-    if (frameCount2 - lastPhiloChange > 600) {
-        lastPhiloChange = frameCount2;
+    // Philosophy rotation on a clock, so a slower phone does not flip quotes faster
+    if (journeyStarted && nowMs - lastPhiloMs > 14000) {
+        lastPhiloMs = nowMs;
         currentPhiloIndex = (currentPhiloIndex + 1) % PHILOSOPHY_DATA.length;
         updatePhilosophy(currentPhiloIndex);
     }
@@ -1244,7 +1675,8 @@ function generateStars(count) {
                 brightness: random(90, 245),
                 twinkleSpeed: random(0.008, 0.04),
                 twinkleOffset: random(TWO_PI),
-                color: col
+                color: col,
+                glow: random() < 0.08
             });
         }
         return;
@@ -1264,7 +1696,8 @@ function generateStars(count) {
                 [255, 240, 200],
                 [255, 200, 180],
                 [180, 200, 255]
-            ])
+            ]),
+            glow: random() < (COARSE_POINTER ? 0.05 : 0.12)
         });
     }
 }
@@ -1293,8 +1726,8 @@ function drawStars(levelIndex) {
         fill(s.color[0], s.color[1], s.color[2], alpha);
         ellipse(sx, sy, sz, sz);
 
-        // Glow for brighter stars
-        if (s.size > 2 && levelIndex <= 5) {
+        // Glow only for a few bright stars, and never while a fast zoom is in flight
+        if (!zoomingFast && s.glow && s.size > 1.6 && levelIndex <= 5) {
             fill(s.color[0], s.color[1], s.color[2], alpha * 0.1);
             ellipse(sx, sy, sz * 4, sz * 4);
         }
@@ -1357,12 +1790,36 @@ function drawNebulae(levelIndex) {
         let ny = n.y + cos(frameCount2 * n.drift * 0.7) * wobbleY;
         let sz = n.size * (1 + sin(frameCount2 * 0.005 + n.x) * 0.1);
 
+        if (zoomingFast && COARSE_POINTER) continue;
         noStroke();
-        for (let r = sz; r > 0; r -= sz * 0.15) {
+        const steps = zoomingFast ? 3 : RENDER.nebulaSteps;
+        const step = sz / steps;
+        for (let r = sz; r > 0; r -= step) {
             let a = n.alpha * (r / sz) * fadeAlpha;
             fill(n.color[0], n.color[1], n.color[2], a);
             ellipse(nx, ny, r, r * 0.7);
         }
+    }
+}
+
+function buildSpaceGradient() {
+    if (typeof createGraphics !== 'function' || width < 2 || height < 2) return;
+    try {
+        const next = createGraphics(width, height);
+        next.pixelDensity(1);
+        next.clear();
+        next.noStroke();
+        const maxR = Math.max(width, height);
+        const step = Math.max(18, maxR / (COARSE_POINTER ? 18 : 26));
+        for (let r = maxR; r > 0; r -= step) {
+            const t = r / maxR;
+            const shade = 6 + (1 - t) * 14;
+            next.fill(shade * 0.7, shade * 0.85, shade + 8, 16);
+            next.ellipse(width / 2, height / 2, r, r);
+        }
+        spaceGradient = next;
+    } catch (e) {
+        spaceGradient = null;
     }
 }
 
@@ -1374,18 +1831,14 @@ function drawDeepSpace() {
         rect(0, 0, width, height);
         return;
     }
-    // Subtle gradient background
-    let bgR = map(levelIndex, 0, SCALE_LEVELS.length - 1, 5, 15);
-    let bgG = map(levelIndex, 0, SCALE_LEVELS.length - 1, 5, 25);
-    let bgB = map(levelIndex, 0, SCALE_LEVELS.length - 1, 16, 50);
-
-    // Radial gradient
-    noStroke();
-    for (let r = max(width, height); r > 0; r -= 20) {
-        let t = r / max(width, height);
-        fill(bgR * (1 - t * 0.3), bgG * (1 - t * 0.3), bgB * (1 - t * 0.3), 10);
-        ellipse(width / 2, height / 2, r, r);
+    if (spaceGradient && spaceGradient.width > 0) {
+        image(spaceGradient, 0, 0, width, height);
     }
+    // A cheap wash so the field warms slightly as the journey comes closer
+    let wash = map(levelIndex, 0, SCALE_LEVELS.length - 1, 0, 28);
+    noStroke();
+    fill(8, 16, 36, wash);
+    rect(0, 0, width, height);
 
     // 物理模式：银河系前景外示意 — 盘区消光尘埃带（中心动画不受影响）
     if (backdropMode === 1 && levelIndex <= 5) {
@@ -1415,7 +1868,8 @@ function generateGalaxyParticles(count) {
         let offsetY = (Math.random() - 0.5) * spread * 2;
 
         galaxyParticles.push({
-            angle: angle,
+            cosA: Math.cos(angle),
+            sinA: Math.sin(angle),
             dist: dist,
             offsetX: offsetX,
             offsetY: offsetY,
@@ -1439,13 +1893,18 @@ function drawGalaxy(levelIndex) {
 
     let galaxyRadius = min(width, height) * 0.38;
     let rotation = frameCount2 * 0.0003;
+    let cosR = Math.cos(rotation);
+    let sinR = Math.sin(rotation);
+    let stride = (zoomingFast && COARSE_POINTER) ? 2 : 1;
 
     noStroke();
-    for (let p of galaxyParticles) {
-        let a = p.angle + rotation;
+    for (let i = 0; i < galaxyParticles.length; i += stride) {
+        let p = galaxyParticles[i];
         let d = p.dist * galaxyRadius;
-        let sx = cos(a) * d + p.offsetX * galaxyRadius;
-        let sy = sin(a) * d * 0.55 + p.offsetY * galaxyRadius * 0.55;
+        let cosA = p.cosA * cosR - p.sinA * sinR;
+        let sinA = p.sinA * cosR + p.cosA * sinR;
+        let sx = cosA * d + p.offsetX * galaxyRadius;
+        let sy = sinA * d * 0.55 + p.offsetY * galaxyRadius * 0.55;
 
         if (p.isCore) {
             fill(255, 240, 200, p.brightness * alpha * 0.7);
@@ -1456,7 +1915,8 @@ function drawGalaxy(levelIndex) {
     }
 
     // Galaxy core glow
-    for (let r = 70; r > 0; r -= 3) {
+    let coreStep = (COARSE_POINTER || zoomingFast) ? 10 : 4;
+    for (let r = 70; r > 0; r -= coreStep) {
         fill(255, 240, 200, map(r, 0, 70, 35, 0) * alpha);
         ellipse(0, 0, r, r * 0.55);
     }
@@ -1515,6 +1975,9 @@ function drawSolarSystemView(levelIndex) {
 
     push();
     translate(width / 2, height / 2);
+    const s = viewScale();
+    scale(s);
+    const label = function (px) { textSize(px / s); };
 
     if (levelIndex === 4 || levelIndex === 5) {
         stroke(255, 255, 255, 20 * alpha);
@@ -1557,11 +2020,11 @@ function drawSolarSystemView(levelIndex) {
                 ellipse(px, py, body.size * 2.2, body.size * 0.6);
             }
 
-            if (body.dist > 0) {
+            if (body.dist > 0 && (s > 0.82 || body.name === '地球' || body.name === '木星' || body.name === '土星' || body.name === '火星')) {
                 fill(255, 255, 255, 180 * alpha);
                 noStroke();
                 textAlign(CENTER);
-                textSize(10);
+                label(11);
                 textFont('Noto Sans SC');
                 text(body.name, px, py - body.size / 2 - 8);
             }
@@ -1595,9 +2058,9 @@ function drawSolarSystemView(levelIndex) {
         fill(255, 255, 255, 200 * alpha);
         textAlign(CENTER);
         textFont('Noto Sans SC');
-        textSize(11);
+        label(13);
         text('地球公转轨道（示意）', 0, -orbitSize * 0.52);
-        textSize(10);
+        label(12);
         text('太阳', 0, 36);
         text('地球', ex, ey - earthBody.size * 0.5 - 10);
     } else if (levelIndex === 7) {
@@ -1628,9 +2091,9 @@ function drawSolarSystemView(levelIndex) {
         fill(255, 255, 255, 195 * alpha);
         textAlign(CENTER);
         textFont('Noto Sans SC');
-        textSize(11);
+        label(13);
         text('地月系统（未按比例）', 0, -72);
-        textSize(10);
+        label(12);
         text('地球', 0, 38);
         text('月球', mx, my + 18);
         textAlign(LEFT);
@@ -1787,7 +2250,7 @@ function drawEarthView(levelIndex) {
     ellipse(0, 0, earthR * 2 - 10, earthR * 2 - 10);
 
     // Atmosphere glow
-    for (let r = earthR + 30; r > earthR; r -= 2) {
+    for (let r = earthR + 30; r > earthR; r -= (COARSE_POINTER ? 6 : 3)) {
         fill(100, 180, 255, map(r, earthR, earthR + 30, 15, 0) * alpha);
         ellipse(0, 0, r * 2, r * 2);
     }
@@ -1844,7 +2307,8 @@ function drawEarthView(levelIndex) {
 // --- City View ---
 function generateCityLights() {
     cityLights = [];
-    for (let i = 0; i < 200; i++) {
+    const count = RENDER.cityLights;
+    for (let i = 0; i < count; i++) {
         cityLights.push({
             x: random(-300, 300),
             y: random(-200, 200),
@@ -1863,11 +2327,14 @@ function generateCityLights() {
 
 function drawCityView(levelIndex) {
     if (levelIndex !== 10) return;
-    let alpha = map(currentLogScale, SCALE_LEVELS[11].logSize, SCALE_LEVELS[10].logSize, 0, 1);
+    let alpha = map(currentLogScale, 1.7, SCALE_LEVELS[10].logSize, 0, 1);
     alpha = constrain(alpha, 0, 1);
+    if (alpha <= 0.02) return;
 
     push();
     translate(width / 2, height / 2);
+    const s = viewScale();
+    scale(s);
 
     // City grid
     stroke(60, 80, 100, 30 * alpha);
@@ -1886,9 +2353,10 @@ function drawCityView(levelIndex) {
         fill(l.color[0], l.color[1], l.color[2], 200 * alpha * flicker);
         ellipse(l.x, l.y, l.size, l.size);
 
-        // Glow
-        fill(l.color[0], l.color[1], l.color[2], 20 * alpha * flicker);
-        ellipse(l.x, l.y, l.size * 4, l.size * 4);
+        if (!zoomingFast && !COARSE_POINTER) {
+            fill(l.color[0], l.color[1], l.color[2], 20 * alpha * flicker);
+            ellipse(l.x, l.y, l.size * 4, l.size * 4);
+        }
     }
 
     // Roads
@@ -1924,30 +2392,30 @@ function drawCityView(levelIndex) {
         }
     }
 
+    const cap = -Math.min(height * 0.3, 250) / s;
     fill(255, 255, 255, 235 * alpha);
     textAlign(CENTER);
     textFont('Noto Sans SC');
-    textSize(17);
-    text(viewerCityLabel || '…', 0, -248);
-    textSize(12);
+    textSize(17 / s);
+    text(viewerCityLabel || '…', 0, cap);
+    textSize(12 / s);
     textFont('Orbitron');
     fill(0, 229, 255, 210 * alpha);
     if (viewerGeoStatus === 'naming' || viewerGeoStatus === 'ready') {
-        text(formatLatLon(viewerLat, viewerLon), 0, -222);
-    } else {
-        text('', 0, -222);
+        text(formatLatLon(viewerLat, viewerLon), 0, cap + 26 / s);
     }
     textFont('Noto Sans SC');
-    textSize(10);
+    textSize(11 / s);
     fill(200, 205, 230, 170 * alpha);
+    const warmY = cap + 48 / s;
     if (viewerGeoStatus === 'ready' && viewerWarmLine) {
-        text(viewerWarmLine, 0, -200);
+        text(viewerWarmLine, 0, warmY);
     } else if (viewerWarmLine) {
-        text(viewerWarmLine, 0, -200);
+        text(viewerWarmLine, 0, warmY);
     } else if (viewerGeoStatus === 'naming') {
-        text('地名解析完成后，会在这里出现一句给你的话。', 0, -200);
+        text('地名解析完成后，会在这里出现一句给你的话。', 0, warmY);
     } else {
-        text('城市尺度 · 俯瞰视角', 0, -200);
+        text('城市尺度 · 俯瞰视角', 0, warmY);
     }
 
     pop();
@@ -1955,9 +2423,10 @@ function drawCityView(levelIndex) {
 
 // --- You Marker ---
 function drawYouMarker(levelIndex) {
-    if (levelIndex < 11) return;
-    let alpha = map(currentLogScale, SCALE_LEVELS[10].logSize, SCALE_LEVELS[11].logSize, 0, 1);
+    if (levelIndex < 10) return;
+    let alpha = map(currentLogScale, SCALE_LEVELS[11].logSize, 2.4, 1, 0);
     alpha = constrain(alpha, 0, 1);
+    if (alpha <= 0.02) return;
 
     push();
     translate(width / 2, height / 2);
@@ -2032,37 +2501,43 @@ let transitionAlpha = 0;
 function drawScaleTransition(levelIndex) {
     if (levelIndex !== lastLevelIndex) {
         lastLevelIndex = levelIndex;
-        transitionAlpha = 255;
+        transitionStartMs = performance.now();
     }
-    if (transitionAlpha > 0) {
-        transitionAlpha -= 2;
-        let level = SCALE_LEVELS[levelIndex];
-        let a = transitionAlpha;
+    const age = performance.now() - transitionStartMs;
+    const hold = 650;
+    const fade = 420;
+    let a = 0;
+    if (age < hold) a = 255;
+    else if (age < hold + fade) a = 255 * (1 - (age - hold) / fade);
+    else return;
 
-        // Center label
-        textAlign(CENTER, CENTER);
-        noStroke();
+    let level = SCALE_LEVELS[levelIndex];
+    const y = layoutIsCompact() ? height * 0.34 : height * 0.46;
+    textAlign(CENTER, CENTER);
+    noStroke();
+    textFont('Noto Sans SC');
+    textSize(layoutIsCompact() ? 18 : 22);
+    const nameW = textWidth(level.name);
+    textFont('Orbitron');
+    textSize(layoutIsCompact() ? 11 : 12);
+    const distW = textWidth(level.distance);
+    let labelW = Math.min(width * 0.88, Math.max(nameW, distW) + 56);
 
-        // Background pill
-        let labelW = textWidth(level.name) * 1.5 + 60;
-        fill(5, 5, 16, a * 0.6);
-        rectMode(CENTER);
-        rect(width / 2, height / 2, max(200, labelW), 50, 25);
+    fill(5, 5, 16, a * 0.78);
+    rectMode(CENTER);
+    rect(width / 2, y, labelW, layoutIsCompact() ? 58 : 64, 18);
 
-        // Text
-        fill(0, 229, 255, a);
-        textFont('Noto Sans SC');
-        textSize(18);
-        text(level.name, width / 2, height / 2 - 2);
+    fill(0, 229, 255, a);
+    textFont('Noto Sans SC');
+    textSize(layoutIsCompact() ? 18 : 22);
+    text(level.name, width / 2, y - 10);
 
-        // Sub-label
-        fill(255, 213, 79, a * 0.8);
-        textSize(11);
-        textFont('Orbitron');
-        text(level.distance, width / 2, height / 2 + 22);
+    fill(255, 213, 79, a * 0.95);
+    textSize(layoutIsCompact() ? 12 : 13);
+    textFont('Noto Sans SC');
+    text(formatLiveMeters(currentLogScale), width / 2, y + 14);
 
-        rectMode(CORNER);
-    }
+    rectMode(CORNER);
 }
 
 // --- UI Updates ---
@@ -2196,18 +2671,44 @@ function toggleAmbientMusic() {
     }
 }
 
+function displayedLevelIndex(levelIndex) {
+    return levelIndex;
+}
+
+function stopOpeningCruise() {
+    openingCruise = false;
+}
+
 function updateUI(levelIndex) {
+    levelIndex = displayedLevelIndex(levelIndex);
     let level = SCALE_LEVELS[levelIndex];
-    document.getElementById('scaleName').textContent = level.name;
-    document.getElementById('scaleDistance').textContent = level.distance;
+    const nameEl = document.getElementById('scaleName');
+    const distEl = document.getElementById('scaleDistance');
+    const liveEl = document.getElementById('scaleLive');
+    if (uiCache.name !== level.name) {
+        uiCache.name = level.name;
+        nameEl.textContent = level.name;
+        syncJourneyHash(level.id);
+    }
+    const stationLine = '参照 ' + level.distance;
+    if (uiCache.dist !== stationLine) {
+        uiCache.dist = stationLine;
+        distEl.textContent = stationLine;
+    }
+    const live = formatLiveMeters(currentLogScale);
+    if (liveEl && uiCache.live !== live) {
+        uiCache.live = live;
+        liveEl.textContent = live;
+    }
 
-    // Scale bar
-    let progress = map(levelIndex, 0, SCALE_LEVELS.length - 1, 0, 100);
-    document.getElementById('scaleBar').style.width = progress + '%';
+    // Scale bar follows the continuous log position
+    let progress = (LOG_SCALE_MAX - currentLogScale) / (LOG_SCALE_MAX - LOG_SCALE_MIN) * 100;
+    if (Math.abs(progress - uiCache.bar) > 0.4) {
+        uiCache.bar = progress;
+        document.getElementById('scaleBar').style.width = progress + '%';
+    }
 
-    // Slider thumb position
-    let thumbY = map(currentLogScale, LOG_SCALE_MAX, LOG_SCALE_MIN, 0, 100);
-    document.getElementById('sliderThumb').style.top = thumbY + '%';
+    positionSliderThumb(progress);
 
     let geoEl = document.getElementById('geoCoords');
     if (geoEl) {
@@ -2233,6 +2734,7 @@ function updateUI(levelIndex) {
     }
 
     updateScienceCaption(levelIndex);
+    placeScienceHint();
 }
 
 function closePhilosophyPanel(e) {
@@ -2256,6 +2758,51 @@ function closeSceneGalleryPanel(e) {
     wrap.classList.add('panel-dismissed');
 }
 
+function togglePhilosophyPanel(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const panel = document.getElementById('philosophyPanel');
+    if (!panel) return;
+    const closed = panel.classList.contains('panel-dismissed') || !panel.classList.contains('visible');
+    if (closed) {
+        panel.classList.remove('panel-dismissed');
+        if (layoutIsCompact()) {
+            const scenes = document.getElementById('sceneGallery');
+            if (scenes) scenes.classList.add('panel-dismissed');
+        }
+        updatePhilosophy(currentPhiloIndex);
+    } else {
+        closePhilosophyPanel();
+    }
+}
+
+function toggleSceneGallery(e) {
+    if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    const wrap = document.getElementById('sceneGallery');
+    if (!wrap) return;
+    if (wrap.classList.contains('panel-dismissed')) {
+        wrap.classList.remove('panel-dismissed');
+        wrap.style.opacity = '1';
+        if (layoutIsCompact()) {
+            const panel = document.getElementById('philosophyPanel');
+            if (panel) {
+                panel.classList.remove('visible');
+                panel.classList.add('panel-dismissed');
+            }
+        }
+        document.querySelectorAll('.scene-card').forEach(function (card) {
+            card.classList.add('visible');
+        });
+    } else {
+        closeSceneGalleryPanel();
+    }
+}
+
 function updatePhilosophy(index) {
     let panel = document.getElementById('philosophyPanel');
     if (!panel || panel.classList.contains('panel-dismissed')) return;
@@ -2274,17 +2821,24 @@ function updatePhilosophy(index) {
 }
 
 // --- Controls ---
-function zoomIn() {
-    targetLogScale = max(LOG_SCALE_MIN, targetLogScale - 0.85);
+function nudgeZoom(delta) {
+    if (!journeyStarted) return;
+    stopOpeningCruise();
+    targetLogScale = clamp(targetLogScale + delta, LOG_SCALE_MIN, LOG_SCALE_MAX);
     animating = true;
+    startAnimLoop();
+}
+
+function zoomIn() {
+    nudgeZoom(-0.85);
 }
 
 function zoomOut() {
-    targetLogScale = min(LOG_SCALE_MAX, targetLogScale + 0.85);
-    animating = true;
+    nudgeZoom(0.85);
 }
 
 function toggleAutoPlay() {
+    stopOpeningCruise();
     autoPlaying = !autoPlaying;
     let btn = document.getElementById('autoPlayBtn');
     if (autoPlaying) {
@@ -2298,13 +2852,82 @@ function toggleAutoPlay() {
 }
 
 function resetJourney() {
+    if (!journeyStarted) return;
+    stopOpeningCruise();
     targetLogScale = LOG_SCALE_MAX;
     currentLogScale = LOG_SCALE_MAX;
     autoPlaying = false;
-    document.getElementById('autoPlayBtn').classList.remove('active');
-    document.getElementById('autoPlayBtn').textContent = '▶';
+    autoPlayDir = -1;
+    const btn = document.getElementById('autoPlayBtn');
+    if (btn) {
+        btn.classList.remove('active');
+        btn.textContent = '▶';
+    }
     animating = true;
+    lastLevelIndex = -1;
     startAnimLoop();
+}
+
+function toggleFullscreen() {
+    const root = document.documentElement;
+    const active = document.fullscreenElement || document.webkitFullscreenElement;
+    if (!active) {
+        const req = root.requestFullscreen || root.webkitRequestFullscreen;
+        if (!req) {
+            toast('这个浏览器不能把页面全屏');
+            return;
+        }
+        Promise.resolve(req.call(root)).catch(function () {
+            toast('这个浏览器不能把页面全屏');
+        });
+    } else {
+        const exit = document.exitFullscreen || document.webkitExitFullscreen;
+        if (exit) exit.call(document);
+    }
+}
+
+function journeyShareUrl() {
+    const idx = typeof getCurrentLevelIndex === 'function' ? getCurrentLevelIndex() : 0;
+    const url = new URL(location.href);
+    url.hash = 'at=' + SCALE_LEVELS[idx].id;
+    url.pathname = url.pathname.replace(/cosmic_journey\.html$/, '').replace(/index\.html$/, '');
+    return url.toString();
+}
+
+function shareJourney() {
+    if (!journeyStarted) return;
+    const url = journeyShareUrl();
+    const payload = { title: '宇宙尺度之旅', text: '从可观测宇宙到你在这里', url: url };
+    if (navigator.share && (layoutIsCompact() || COARSE_POINTER)) {
+        navigator.share(payload).catch(function (err) {
+            if (err && err.name === 'AbortError') return;
+            copyJourneyUrl(url);
+        });
+        return;
+    }
+    copyJourneyUrl(url);
+}
+
+function copyJourneyUrl(url) {
+    function fallback() {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        ta.remove();
+        toast('链接已复制');
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () {
+            toast('链接已复制');
+        }).catch(fallback);
+    } else {
+        fallback();
+    }
 }
 
 function showScene(index) {
@@ -2319,15 +2942,24 @@ function closeScene() {
     document.getElementById('sceneModal').classList.remove('active');
 }
 
-// --- Mouse Wheel Zoom ---
-function mouseWheel(event) {
-    if (!journeyStarted) return;
-    let zoomAmount = event.delta > 0 ? 1 : -1;
-    targetLogScale += zoomAmount * 0.18;
-    targetLogScale = constrain(targetLogScale, LOG_SCALE_MIN, LOG_SCALE_MAX);
-    animating = true;
-    if (!animFrameId) startAnimLoop();
+// p5 still receives the wheel; returning false keeps the page from scrolling.
+// The actual zoom lives on the window listener so trackpad deltas stay proportional.
+function mouseWheel() {
     return false;
+}
+
+function applyWheelZoom(e) {
+    if (!journeyStarted) return;
+    if (e.target && e.target.closest && e.target.closest('.philosophy-panel, .scene-modal, .scene-gallery')) return;
+    e.preventDefault();
+    stopOpeningCruise();
+    let delta = e.deltaY;
+    if (e.deltaMode === 1) delta *= 16;
+    else if (e.deltaMode === 2) delta *= 480;
+    const gain = e.ctrlKey ? 0.011 : 0.0046;
+    targetLogScale = clamp(targetLogScale + delta * gain, LOG_SCALE_MIN, LOG_SCALE_MAX);
+    animating = true;
+    startAnimLoop();
 }
 
 function logScaleToSliderTopPct(logSize) {
@@ -2336,13 +2968,46 @@ function logScaleToSliderTopPct(logSize) {
 
 function snapToScaleLevel(index) {
     if (!journeyStarted || index < 0 || index >= SCALE_LEVELS.length) return;
+    stopOpeningCruise();
     let log = SCALE_LEVELS[index].logSize;
     targetLogScale = log;
     currentLogScale = log;
     animating = false;
     lastLevelIndex = -1;
-    transitionAlpha = 255;
-    if (!animFrameId) startAnimLoop();
+    transitionStartMs = performance.now();
+    startAnimLoop();
+}
+
+function sliderIsHorizontal() {
+    return layoutIsCompact();
+}
+
+function positionSliderThumb(pct) {
+    const thumb = document.getElementById('sliderThumb');
+    if (!thumb) return;
+    if (sliderIsHorizontal()) {
+        thumb.style.left = pct + '%';
+        thumb.style.top = '50%';
+    } else {
+        thumb.style.top = pct + '%';
+        thumb.style.left = '50%';
+    }
+}
+
+function layoutSlider() {
+    const horizontal = sliderIsHorizontal();
+    document.querySelectorAll('.slider-node').forEach(function (btn) {
+        const pct = btn.dataset.pct || '0';
+        if (horizontal) {
+            btn.style.left = pct + '%';
+            btn.style.top = '50%';
+        } else {
+            btn.style.top = pct + '%';
+            btn.style.left = '50%';
+        }
+    });
+    const pct = ((LOG_SCALE_MAX - currentLogScale) / (LOG_SCALE_MAX - LOG_SCALE_MIN)) * 100;
+    positionSliderThumb(pct);
 }
 
 function buildSliderMilestoneNodes() {
@@ -2356,7 +3021,7 @@ function buildSliderMilestoneNodes() {
         btn.className = 'slider-node';
         btn.title = level.name + ' · ' + level.distance;
         btn.setAttribute('aria-label', '跳转到：' + level.name);
-        btn.style.top = logScaleToSliderTopPct(level.logSize) + '%';
+        btn.dataset.pct = String(logScaleToSliderTopPct(level.logSize));
         btn.addEventListener('mousedown', function (e) {
             e.preventDefault();
             e.stopPropagation();
@@ -2373,6 +3038,7 @@ function buildSliderMilestoneNodes() {
         })(i);
         host.appendChild(btn);
     }
+    layoutSlider();
 }
 
 // --- Slider Drag ---
@@ -2393,13 +3059,22 @@ function setupSliderDrag() {
 
     function handleDrag(e) {
         if (!sliderDragging) return;
-        let rect = track.getBoundingClientRect();
-        let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        let y = (clientY - rect.top) / rect.height;
-        y = constrain(y, 0, 1);
-        targetLogScale = map(y, 0, 1, LOG_SCALE_MAX, LOG_SCALE_MIN);
+        if (e.cancelable) e.preventDefault();
+        let box = sliderIsHorizontal()
+            ? document.getElementById('sliderStack').getBoundingClientRect()
+            : track.getBoundingClientRect();
+        let point = e.touches ? e.touches[0] : e;
+        let t;
+        if (sliderIsHorizontal()) {
+            t = (point.clientX - box.left) / Math.max(1, box.width);
+        } else {
+            t = (point.clientY - box.top) / Math.max(1, box.height);
+        }
+        t = clamp(t, 0, 1);
+        stopOpeningCruise();
+        targetLogScale = LOG_SCALE_MAX + (LOG_SCALE_MIN - LOG_SCALE_MAX) * t;
         animating = true;
-        if (!animFrameId) startAnimLoop();
+        startAnimLoop();
     }
 
     function stopDrag() {
@@ -2416,12 +3091,127 @@ function setupSliderDrag() {
     document.addEventListener('touchend', stopDrag);
 }
 
+function readResumeLog() {
+    const match = (location.hash || '').match(/at=([a-z0-9-]+)/i);
+    if (match) {
+        const id = match[1].toLowerCase();
+        const found = SCALE_LEVELS.find(function (level) { return level.id === id; });
+        if (found && found.id !== 'observable') return found.logSize;
+    }
+    try {
+        const saved = sessionStorage.getItem('cosmicJourneyLog');
+        if (saved != null && !(location.hash || '').match(/at=/i)) {
+            const v = parseFloat(saved);
+            if (!isNaN(v) && v < LOG_SCALE_MAX - 0.4) return clamp(v, LOG_SCALE_MIN, LOG_SCALE_MAX);
+        }
+    } catch (e) {}
+    return null;
+}
+
+let hashToken = 0;
+function syncJourneyHash(id) {
+    if (!journeyStarted || !id) return;
+    const next = '#at=' + id;
+    const token = ++hashToken;
+    setTimeout(function () {
+        if (token !== hashToken) return;
+        if (location.hash !== next) history.replaceState(null, '', next);
+        try { sessionStorage.setItem('cosmicJourneyLog', currentLogScale.toFixed(3)); } catch (e) {}
+    }, 200);
+}
+
+function attachCanvasGestures(elt) {
+    if (!elt || elt.dataset.gesturesAttached) return;
+    elt.dataset.gesturesAttached = '1';
+    const points = new Map();
+    let pinch = null;
+    let drag = null;
+
+    function remember(list) {
+        for (let i = 0; i < list.length; i++) {
+            const t = list[i];
+            points.set(t.identifier, { x: t.clientX, y: t.clientY });
+        }
+    }
+
+    elt.addEventListener('touchstart', function (e) {
+        if (!journeyStarted) return;
+        remember(e.changedTouches);
+        hideTouchCoach();
+        if (points.size >= 2) {
+            stopOpeningCruise();
+            const arr = Array.from(points.values());
+            pinch = {
+                dist: Math.max(12, Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y)),
+                log: targetLogScale
+            };
+            drag = null;
+        } else if (points.size === 1) {
+            const p = Array.from(points.values())[0];
+            drag = { y: p.y, log: targetLogScale, moved: false };
+        }
+    }, { passive: true });
+
+    elt.addEventListener('touchmove', function (e) {
+        if (!journeyStarted) return;
+        remember(e.changedTouches);
+        if (points.size >= 2 && pinch) {
+            if (e.cancelable) e.preventDefault();
+            const arr = Array.from(points.values());
+            const dist = Math.max(12, Math.hypot(arr[0].x - arr[1].x, arr[0].y - arr[1].y));
+            const ratio = dist / pinch.dist;
+            stopOpeningCruise();
+            targetLogScale = clamp(pinch.log - Math.log10(ratio) * 7, LOG_SCALE_MIN, LOG_SCALE_MAX);
+            animating = true;
+            startAnimLoop();
+        } else if (points.size === 1 && drag && !pinch) {
+            const p = Array.from(points.values())[0];
+            const dy = drag.y - p.y;
+            if (!drag.moved && Math.abs(dy) < 10) return;
+            drag.moved = true;
+            stopOpeningCruise();
+            if (e.cancelable) e.preventDefault();
+            targetLogScale = clamp(drag.log - dy * 0.02, LOG_SCALE_MIN, LOG_SCALE_MAX);
+            animating = true;
+            startAnimLoop();
+        }
+    }, { passive: false });
+
+    function endTouch(e) {
+        for (let i = 0; i < e.changedTouches.length; i++) points.delete(e.changedTouches[i].identifier);
+        if (points.size < 2) pinch = null;
+        if (points.size === 0) drag = null;
+        else if (points.size === 1) {
+            const p = Array.from(points.values())[0];
+            drag = { y: p.y, log: targetLogScale, moved: false };
+        }
+    }
+    elt.addEventListener('touchend', endTouch);
+    elt.addEventListener('touchcancel', endTouch);
+}
+
 // --- Start Journey ---
 function startJourney() {
+    if (journeyStarted) return;
     journeyStarted = true;
     tryResolveGeolocation();
     tryPlayAmbientMusic();
     document.getElementById('introOverlay').classList.add('fade-out');
+    lastPhiloMs = performance.now();
+
+    const resume = readResumeLog();
+    if (resume == null) {
+        openingCruise = true;
+        targetLogScale = currentLogScale;
+        animating = false;
+    } else {
+        openingCruise = false;
+        targetLogScale = resume;
+        currentLogScale = resume;
+        animating = false;
+        lastLevelIndex = -1;
+    }
+    startAnimLoop();
 
     setTimeout(() => {
         document.getElementById('introOverlay').style.display = 'none';
@@ -2430,23 +3220,26 @@ function startJourney() {
         document.getElementById('scaleSlider').style.opacity = '1';
         document.getElementById('sceneGallery').style.opacity = '1';
 
-        // Show scene cards with delay
+        const compact = layoutIsCompact() || COARSE_POINTER;
         let cards = document.querySelectorAll('.scene-card');
         cards.forEach((card, i) => {
-            setTimeout(() => card.classList.add('visible'), 500 + i * 200);
+            setTimeout(() => card.classList.add('visible'), compact ? 0 : 500 + i * 200);
         });
 
-        // Start auto zoom
-        targetLogScale = LOG_SCALE_MIN;
-        animating = true;
-        startAnimLoop();
+        if (compact) {
+            document.getElementById('philosophyPanel').classList.add('panel-dismissed');
+            document.getElementById('sceneGallery').classList.add('panel-dismissed');
+            const coach = document.getElementById('touchCoach');
+            if (coach) {
+                coach.hidden = false;
+                coachTimer = setTimeout(hideTouchCoach, 6500);
+            }
+        } else {
+            setTimeout(() => {
+                updatePhilosophy(0);
+            }, 600);
+        }
 
-        // Show philosophy
-        setTimeout(() => {
-            updatePhilosophy(0);
-        }, 2000);
-
-        // Setup slider
         setupSliderDrag();
     }, 1500);
 }
@@ -2454,7 +3247,8 @@ function startJourney() {
 // --- Intro Stars Animation ---
 function createIntroStars() {
     let container = document.getElementById('introStars');
-    for (let i = 0; i < 200; i++) {
+    const count = COARSE_POINTER ? 70 : 160;
+    for (let i = 0; i < count; i++) {
         let star = document.createElement('div');
         star.style.cssText = `
             position: absolute;
@@ -2481,14 +3275,45 @@ function createIntroStars() {
     document.head.appendChild(style);
 }
 
-// --- Keyboard Controls ---
-function keyPressed() {
-    if (!journeyStarted) return;
-    if (key === '+' || key === '=') zoomIn();
-    if (key === '-') zoomOut();
-    if (key === ' ') { toggleAutoPlay(); return false; }
-    if (key === 'r' || key === 'R') resetJourney();
-}
+// Keyboard lives on window so it still works after a button takes focus.
+// Space toggles autoplay. Arrows and +/- zoom. R resets. F toggles fullscreen.
+window.addEventListener('keydown', function (e) {
+    const tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (!journeyStarted) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            startJourney();
+        }
+        return;
+    }
+    if (e.key === ' ' || e.code === 'Space') {
+        e.preventDefault();
+        toggleAutoPlay();
+    } else if (e.key === '+' || e.key === '=' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        zoomIn();
+    } else if (e.key === '-' || e.key === '_' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        zoomOut();
+    } else if (e.key === 'r' || e.key === 'R' || e.key === '0' || e.key === 'Home') {
+        e.preventDefault();
+        resetJourney();
+    } else if (e.key === 'End') {
+        e.preventDefault();
+        snapToScaleLevel(SCALE_LEVELS.length - 1);
+    } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+    } else if (e.key === 'Escape') {
+        closeScene();
+    }
+});
+
+window.addEventListener('wheel', applyWheelZoom, { passive: false });
+
+document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
 
 // 任意一次点击/触摸后若旅程已开始且音乐仍暂停，再尝试播放（解决「仅自动开始旅程」无用户手势导致静音策略）
 document.addEventListener(
@@ -2501,7 +3326,13 @@ document.addEventListener(
     { capture: true, passive: true }
 );
 
+window.addEventListener('resize', function () {
+    syncLayoutMode();
+    layoutSlider();
+});
+
 // Init
+syncLayoutMode();
 createIntroStars();
 </script>
 </body>
