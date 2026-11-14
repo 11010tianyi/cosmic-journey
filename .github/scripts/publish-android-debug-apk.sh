@@ -145,3 +145,5 @@ if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
 - 版本规则: 没有 \`vMAJOR.MINOR.PATCH\` tag 时发布 \`v1.0.0\`；否则在最高 tag 上把 patch 加一。若目标 tag 或 Release 已存在，则继续取下一个未占用的 patch。
 EOF
 fi
+
+# Retrigger build after debug keystore secret was added.
