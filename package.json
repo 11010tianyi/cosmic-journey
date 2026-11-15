@@ -25,7 +25,7 @@
     "android:sync": "bun run build:mobile && cap sync android",
     "build:mobile": "node scripts/build-mobile.mjs",
     "mobile:sync": "bun run build:mobile && cap sync",
-    "capacitor:sync:after": "node scripts/apply-icon.mjs"
+    "capacitor:sync:after": "node scripts/apply-icon.mjs && node scripts/apply-signing.mjs"
   },
   "type": "module",
   "version": "1.0.0"
