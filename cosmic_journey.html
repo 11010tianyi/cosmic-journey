@@ -96,6 +96,7 @@
             padding: 16px 24px;
             pointer-events: auto;
             min-width: 320px;
+            box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
         }
 
         .scale-title {
@@ -113,6 +114,7 @@
             font-weight: 700;
             color: var(--text-primary);
             margin-bottom: 4px;
+            text-shadow: 0 0 24px rgba(140, 190, 255, 0.35);
         }
 
         .scale-distance {
@@ -129,6 +131,7 @@
             color: var(--star-gold);
             letter-spacing: 0.4px;
             margin-top: 4px;
+            text-shadow: 0 0 14px rgba(255, 213, 79, 0.45);
         }
 
         .scale-geo {
@@ -198,6 +201,7 @@
             background: linear-gradient(90deg, var(--accent-cyan), var(--star-gold));
             border-radius: 2px;
             transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.55);
         }
 
         /* Philosophy Panel */
@@ -1233,6 +1237,11 @@ let viewerCityLabel = '';
 let viewerWarmLine = '';
 let geoHintTried = false;
 let spaceGradient = null;
+let glowSprites = {};
+let vignetteSprite = null;
+let meteors = [];
+let nextMeteorMs = 0;
+let prevLogScaleForStars = LOG_SCALE_MAX;
 let lastCanvasW = 0;
 let lastCanvasH = 0;
 let lastDrawMs = 0;
@@ -1506,6 +1515,8 @@ function setup() {
     generateEarthFeatures();
     generateCityLights();
     buildSpaceGradient();
+    buildGlowSprites();
+    buildVignette();
     syncLayoutMode();
     attachCanvasGestures(canvas.elt);
     stopAnimLoop();
@@ -1526,7 +1537,7 @@ function windowResized() {
     const dh = Math.abs(windowHeight - lastCanvasH);
     lastCanvasW = windowWidth;
     lastCanvasH = windowHeight;
-    if (dw > 80 || dh > 80 || !spaceGradient) buildSpaceGradient();
+    if (dw > 80 || dh > 80 || !spaceGradient) { buildSpaceGradient(); buildVignette(); }
     layoutSlider();
     hintPlaceAt = 0;
     placeScienceHint();
@@ -1611,6 +1622,10 @@ function draw() {
     // Draw scale transition label in center
     drawScaleTransition(displayIndex);
 
+    // Cinematic vignette above the scene (transparent at center, labels stay readable)
+    if (vignetteSprite && backdropMode !== 2) image(vignetteSprite, 0, 0, width, height);
+    prevLogScaleForStars = currentLogScale;
+
     // Auto play, about 0.9 log-units per second
     if (autoPlaying) {
         targetLogScale += autoPlayDir * 0.9 * dt;
@@ -1676,7 +1691,8 @@ function generateStars(count) {
                 twinkleSpeed: random(0.008, 0.04),
                 twinkleOffset: random(TWO_PI),
                 color: col,
-                glow: random() < 0.08
+                glow: random() < 0.08,
+                depth: random(0.5, 1)
             });
         }
         return;
@@ -1697,30 +1713,56 @@ function generateStars(count) {
                 [255, 200, 180],
                 [180, 200, 255]
             ]),
-            glow: random() < (COARSE_POINTER ? 0.05 : 0.12)
+            glow: random() < (COARSE_POINTER ? 0.05 : 0.12),
+            depth: random(0.35, 1)
         });
     }
+}
+
+function starZoomFactor(logScale, depth) {
+    // As the journey descends the log scale, the star field streams outward
+    // from the center — nearer stars (depth ~1) move faster than far ones.
+    return Math.pow(2.3, (LOG_SCALE_MAX - logScale) * 0.052 * depth);
 }
 
 function drawStars(levelIndex) {
     if (backdropMode === 2) return;
     if (levelIndex >= 10) return;
+    const cx = width / 2;
+    const cy = height / 2;
     for (let s of stars) {
         let twinkle = sin(frameCount2 * s.twinkleSpeed + s.twinkleOffset) * 0.3 + 0.7;
         let alpha = s.brightness * twinkle;
-        let sz = s.size;
+        let depth = s.depth || 0.7;
+
+        let f = starZoomFactor(currentLogScale, depth);
+        let sx = cx + (s.x - cx) * 0.5 * f;
+        let sy = cy + (s.y - cy) * 0.5 * f;
+
+        // Wrap around
+        sx = ((sx % width) + width) % width;
+        sy = ((sy % height) + height) % height;
+
+        let sz = s.size * (0.75 + 0.35 * f * depth);
 
         // Stars become more prominent at larger scales
         if (levelIndex <= 3) {
             sz *= 1.5;
         }
 
-        let sx = (s.x - width / 2) * 0.5 + width / 2;
-        let sy = (s.y - height / 2) * 0.5 + height / 2;
-
-        // Wrap around
-        sx = ((sx % width) + width) % width;
-        sy = ((sy % height) + height) % height;
+        // Radial streaks for bright stars while a fast zoom is in flight
+        if (zoomingFast && !COARSE_POINTER && s.brightness > 165) {
+            let fp = starZoomFactor(prevLogScaleForStars, depth);
+            let px = cx + (s.x - cx) * 0.5 * fp;
+            let py = cy + (s.y - cy) * 0.5 * fp;
+            px = ((px % width) + width) % width;
+            py = ((py % height) + height) % height;
+            if (Math.abs(sx - px) < 70 && Math.abs(sy - py) < 70) {
+                stroke(s.color[0], s.color[1], s.color[2], alpha * 0.35);
+                strokeWeight(Math.max(1, sz * 0.45));
+                line(px, py, sx, sy);
+            }
+        }
 
         noStroke();
         fill(s.color[0], s.color[1], s.color[2], alpha);
@@ -1732,47 +1774,139 @@ function drawStars(levelIndex) {
             ellipse(sx, sy, sz * 4, sz * 4);
         }
     }
+
+    drawMeteors(levelIndex);
+}
+
+// --- Occasional shooting stars in the deep-space levels ---
+function drawMeteors(levelIndex) {
+    if (levelIndex > 5) { meteors = []; return; }
+    const now = performance.now();
+    if (now > nextMeteorMs && !zoomingFast) {
+        nextMeteorMs = now + random(5000, 13000);
+        meteors.push({
+            x: random(width * 0.2, width * 0.98),
+            y: random(height * 0.04, height * 0.38),
+            vx: -random(340, 580),
+            vy: random(190, 330),
+            born: now,
+            life: random(700, 1100)
+        });
+    }
+    meteors = meteors.filter(m => now - m.born < m.life);
+    for (let m of meteors) {
+        const t = (now - m.born) / 1000;
+        const x = m.x + m.vx * t;
+        const y = m.y + m.vy * t;
+        const fade = 1 - (now - m.born) / m.life;
+        // Trail: a few segments fading back along the velocity vector
+        for (let k = 0; k < 4; k++) {
+            const t0 = t - k * 0.045;
+            const t1 = t - (k + 1) * 0.045;
+            stroke(235, 242, 255, 150 * fade * (1 - k * 0.24));
+            strokeWeight(2.2 - k * 0.45);
+            line(m.x + m.vx * t0, m.y + m.vy * t0, m.x + m.vx * t1, m.y + m.vy * t1);
+        }
+        noStroke();
+        fill(255, 255, 255, 230 * fade);
+        ellipse(x, y, 3, 3);
+        drawGlow(glowSprites.warm, x, y, 34, 0.5 * fade);
+    }
 }
 
 // --- Nebulae ---
+const NEBULA_PALETTES = [
+    { main: [110, 60, 210], accent: [60, 120, 230], core: [225, 190, 255] },
+    { main: [50, 110, 210], accent: [40, 200, 190], core: [190, 230, 255] },
+    { main: [205, 60, 120], accent: [240, 120, 90], core: [255, 205, 225] },
+    { main: [45, 195, 155], accent: [60, 130, 220], core: [200, 255, 235] },
+    { main: [155, 85, 190], accent: [230, 90, 140], core: [245, 210, 255] },
+    { main: [230, 140, 60], accent: [200, 70, 90], core: [255, 235, 190] }
+];
+
+const NEBULA_PALETTES_PHYS = [
+    { main: [165, 75, 135], accent: [120, 80, 165], core: [235, 190, 225] },
+    { main: [120, 55, 125], accent: [90, 80, 170], core: [225, 195, 240] },
+    { main: [95, 105, 175], accent: [70, 140, 160], core: [205, 225, 250] },
+    { main: [140, 90, 150], accent: [175, 85, 120], core: [240, 205, 235] }
+];
+
+// Each nebula is pre-rendered once into an irregular multi-blob cloud sprite
+// (radial-gradient falloff, embedded star specks) and then drawn as an image —
+// far softer than concentric ellipse steps, and much cheaper per frame.
+function makeNebulaSprite(cloud) {
+    const S = 256;
+    const gr = createGraphics(S, S);
+    gr.pixelDensity(1);
+    const ctx = gr.drawingContext;
+    const blob = (bx, by, br, col, a) => {
+        const grad = ctx.createRadialGradient(bx, by, 0, bx, by, br);
+        grad.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${a})`);
+        grad.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},0)`);
+        ctx.fillStyle = grad;
+        ctx.fillRect(bx - br, by - br, br * 2, br * 2);
+    };
+    for (let i = 0; i < 22; i++) {
+        const bx = S / 2 + randomGaussian(0, S * 0.17);
+        const by = S / 2 + randomGaussian(0, S * 0.12);
+        const br = random(S * 0.09, S * 0.30);
+        blob(bx, by, br, random() < 0.7 ? cloud.color : cloud.accent, random(0.05, 0.15));
+    }
+    for (let i = 0; i < 4; i++) {
+        const bx = S / 2 + randomGaussian(0, S * 0.07);
+        const by = S / 2 + randomGaussian(0, S * 0.05);
+        blob(bx, by, random(S * 0.05, S * 0.12), cloud.core, random(0.10, 0.20));
+    }
+    gr.noStroke();
+    for (let i = 0; i < 30; i++) {
+        gr.fill(255, 255, 255, random(25, 100));
+        gr.ellipse(S / 2 + randomGaussian(0, S * 0.2), S / 2 + randomGaussian(0, S * 0.14), random(0.6, 1.7));
+    }
+    return gr;
+}
+
 function generateNebulaClouds(count) {
+    for (let n of nebulaClouds) {
+        if (n.sprite) n.sprite.remove();
+    }
     nebulaClouds = [];
     if (backdropMode === 1) {
         let n = max(6, min(count, 12));
         for (let i = 0; i < n; i++) {
             let bandY = height * (0.38 + random(0.24));
-            nebulaClouds.push({
+            let pal = random(NEBULA_PALETTES_PHYS);
+            let cloud = {
                 x: random(width * 0.12, width * 0.88),
                 y: bandY + randomGaussian(0, height * 0.045),
                 size: random(55, 160),
-                color: random([
-                    [165, 75, 135],
-                    [120, 55, 125],
-                    [95, 105, 175],
-                    [140, 90, 150]
-                ]),
+                color: pal.main,
+                accent: pal.accent,
+                core: pal.core,
                 alpha: random(3, 11),
+                opacity: random(0.5, 0.8),
                 drift: random(0.00015, 0.00065)
-            });
+            };
+            cloud.sprite = makeNebulaSprite(cloud);
+            nebulaClouds.push(cloud);
         }
         return;
     }
 
     for (let i = 0; i < count; i++) {
-        nebulaClouds.push({
+        let pal = random(NEBULA_PALETTES);
+        let cloud = {
             x: random(width),
             y: random(height),
             size: random(100, 400),
-            color: random([
-                [100, 50, 200],
-                [50, 100, 200],
-                [200, 50, 100],
-                [50, 200, 150],
-                [150, 80, 180]
-            ]),
+            color: pal.main,
+            accent: pal.accent,
+            core: pal.core,
             alpha: random(5, 20),
+            opacity: random(0.6, 1),
             drift: random(0.0005, 0.002)
-        });
+        };
+        cloud.sprite = makeNebulaSprite(cloud);
+        nebulaClouds.push(cloud);
     }
 }
 
@@ -1781,24 +1915,80 @@ function drawNebulae(levelIndex) {
     if (levelIndex > 5) return;
     let fadeAlpha = map(levelIndex, 3, 5, 1, 0);
     fadeAlpha = constrain(fadeAlpha, 0, 1);
+    if (fadeAlpha <= 0.01) return;
 
     let wobbleX = backdropMode === 1 ? 10 : 30;
     let wobbleY = backdropMode === 1 ? 7 : 20;
 
-    for (let n of nebulaClouds) {
+    push();
+    imageMode(CENTER);
+    for (let i = 0; i < nebulaClouds.length; i++) {
+        let n = nebulaClouds[i];
+        if (!n.sprite) continue;
+        // On touch devices a fast zoom keeps only half the clouds
+        if (zoomingFast && COARSE_POINTER && i % 2 === 0) continue;
         let nx = n.x + sin(frameCount2 * n.drift) * wobbleX;
         let ny = n.y + cos(frameCount2 * n.drift * 0.7) * wobbleY;
         let sz = n.size * (1 + sin(frameCount2 * 0.005 + n.x) * 0.1);
 
-        if (zoomingFast && COARSE_POINTER) continue;
-        noStroke();
-        const steps = zoomingFast ? 3 : RENDER.nebulaSteps;
-        const step = sz / steps;
-        for (let r = sz; r > 0; r -= step) {
-            let a = n.alpha * (r / sz) * fadeAlpha;
-            fill(n.color[0], n.color[1], n.color[2], a);
-            ellipse(nx, ny, r, r * 0.7);
-        }
+        tint(255, 255 * fadeAlpha * (n.opacity || 0.85));
+        image(n.sprite, nx, ny, sz * 1.7, sz * 1.7 * 0.72);
+    }
+    noTint();
+    pop();
+}
+
+// --- Pre-rendered glow sprites (radial gradients, drawn as images) ---
+function makeRadialGlowSprite(r, g, b, size = 256) {
+    const gr = createGraphics(size, size);
+    gr.pixelDensity(1);
+    const ctx = gr.drawingContext;
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0.85)`);
+    grad.addColorStop(0.25, `rgba(${r},${g},${b},0.38)`);
+    grad.addColorStop(0.6, `rgba(${r},${g},${b},0.12)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+    return gr;
+}
+
+function buildGlowSprites() {
+    glowSprites = {
+        sun: makeRadialGlowSprite(255, 190, 80),
+        warm: makeRadialGlowSprite(255, 220, 160),
+        blue: makeRadialGlowSprite(110, 185, 255),
+        cyan: makeRadialGlowSprite(0, 229, 255),
+        rose: makeRadialGlowSprite(255, 120, 170)
+    };
+}
+
+function drawGlow(sprite, x, y, size, alpha, squash = 1) {
+    if (!sprite || alpha <= 0.003) return;
+    push();
+    imageMode(CENTER);
+    tint(255, constrain(alpha, 0, 1) * 255);
+    image(sprite, x, y, size, size * squash);
+    noTint();
+    pop();
+}
+
+function buildVignette() {
+    if (typeof createGraphics !== 'function' || width < 2 || height < 2) return;
+    try {
+        const gr = createGraphics(width, height);
+        gr.pixelDensity(1);
+        const ctx = gr.drawingContext;
+        const rad = Math.hypot(width, height) * 0.62;
+        const grad = ctx.createRadialGradient(width / 2, height / 2, rad * 0.52, width / 2, height / 2, rad);
+        grad.addColorStop(0, 'rgba(2,2,10,0)');
+        grad.addColorStop(0.78, 'rgba(2,2,10,0.10)');
+        grad.addColorStop(1, 'rgba(1,1,8,0.46)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, width, height);
+        vignetteSprite = gr;
+    } catch (e) {
+        vignetteSprite = null;
     }
 }
 
@@ -1834,11 +2024,33 @@ function drawDeepSpace() {
     if (spaceGradient && spaceGradient.width > 0) {
         image(spaceGradient, 0, 0, width, height);
     }
-    // A cheap wash so the field warms slightly as the journey comes closer
-    let wash = map(levelIndex, 0, SCALE_LEVELS.length - 1, 0, 28);
-    noStroke();
-    fill(8, 16, 36, wash);
-    rect(0, 0, width, height);
+    // Color grade: wash the field toward the current station's own palette,
+    // interpolated on the log scale so the mood shifts continuously.
+    {
+        let c = SCALE_LEVELS[SCALE_LEVELS.length - 1].color;
+        if (currentLogScale > SCALE_LEVELS[0].logSize) {
+            c = SCALE_LEVELS[0].color;
+        } else {
+            for (let i = 0; i < SCALE_LEVELS.length - 1; i++) {
+                const hi = SCALE_LEVELS[i].logSize;
+                const lo = SCALE_LEVELS[i + 1].logSize;
+                if (currentLogScale <= hi && currentLogScale >= lo) {
+                    const t = (hi - currentLogScale) / (hi - lo);
+                    const a = SCALE_LEVELS[i].color;
+                    const b = SCALE_LEVELS[i + 1].color;
+                    c = [
+                        a[0] + (b[0] - a[0]) * t,
+                        a[1] + (b[1] - a[1]) * t,
+                        a[2] + (b[2] - a[2]) * t
+                    ];
+                    break;
+                }
+            }
+        }
+        noStroke();
+        fill(c[0], c[1], c[2], 40);
+        rect(0, 0, width, height);
+    }
 
     // 物理模式：银河系前景外示意 — 盘区消光尘埃带（中心动画不受影响）
     if (backdropMode === 1 && levelIndex <= 5) {
@@ -1867,15 +2079,27 @@ function generateGalaxyParticles(count) {
         let offsetX = (Math.random() - 0.5) * spread * 2;
         let offsetY = (Math.random() - 0.5) * spread * 2;
 
+        // Star colors: warm golds in the core, young blue stars along the
+        // arms, a sprinkle of rose HII regions, pale whites elsewhere.
+        let col;
+        let roll = Math.random();
+        if (t < 0.15) col = roll < 0.5 ? [255, 240, 200] : (roll < 0.8 ? [255, 226, 170] : [255, 250, 238]);
+        else if (roll < 0.06) col = [255, 150, 190];
+        else if (roll < 0.45) col = [168, 200, 255];
+        else if (roll < 0.82) col = [226, 233, 255];
+        else col = [255, 236, 206];
+
         galaxyParticles.push({
             cosA: Math.cos(angle),
             sinA: Math.sin(angle),
+            ang: angle,
             dist: dist,
             offsetX: offsetX,
             offsetY: offsetY,
             brightness: map(t, 0, 1, 255, 40),
             size: map(t, 0, 1, 2.8, 0.4),
-            isCore: t < 0.15
+            isCore: t < 0.15,
+            color: col
         });
     }
 }
@@ -1897,20 +2121,22 @@ function drawGalaxy(levelIndex) {
     let sinR = Math.sin(rotation);
     let stride = (zoomingFast && COARSE_POINTER) ? 2 : 1;
 
+    // Soft galactic glow behind the particles (pre-rendered sprite)
+    drawGlow(glowSprites.warm, 0, 0, galaxyRadius * 2.7, 0.42 * alpha, 0.55);
+
     noStroke();
     for (let i = 0; i < galaxyParticles.length; i += stride) {
         let p = galaxyParticles[i];
         let d = p.dist * galaxyRadius;
-        let cosA = p.cosA * cosR - p.sinA * sinR;
-        let sinA = p.sinA * cosR + p.cosA * sinR;
+        // Differential rotation: the inner galaxy turns faster than the rim
+        let rot = rotation * (1.35 - p.dist * 0.85);
+        let cosA = Math.cos(p.ang + rot);
+        let sinA = Math.sin(p.ang + rot);
         let sx = cosA * d + p.offsetX * galaxyRadius;
         let sy = sinA * d * 0.55 + p.offsetY * galaxyRadius * 0.55;
 
-        if (p.isCore) {
-            fill(255, 240, 200, p.brightness * alpha * 0.7);
-        } else {
-            fill(200, 215, 255, p.brightness * alpha * 0.5);
-        }
+        let c = p.color || [226, 233, 255];
+        fill(c[0], c[1], c[2], p.brightness * alpha * (p.isCore ? 0.7 : 0.55));
         ellipse(sx, sy, p.size, p.size);
     }
 
@@ -1921,8 +2147,8 @@ function drawGalaxy(levelIndex) {
         ellipse(0, 0, r, r * 0.55);
     }
 
-    // Sun position marker (in Orion Arm)
-    let sunAngle = 0.8 + rotation;
+    // Sun position marker (in Orion Arm) — follows the differential rotation at its radius
+    let sunAngle = 0.8 + rotation * (1.35 - 0.55 * 0.85);
     let sunDist = galaxyRadius * 0.55;
     let sunX = cos(sunAngle) * sunDist;
     let sunY = sin(sunAngle) * sunDist * 0.55;
@@ -1933,6 +2159,7 @@ function drawGalaxy(levelIndex) {
         ellipse(sunX, sunY, 8, 8);
         fill(255, 200, 50, 50 * alpha * pulse);
         ellipse(sunX, sunY, 22, 22);
+        drawGlow(glowSprites.sun, sunX, sunY, 44, 0.45 * alpha * pulse);
 
         fill(255, 200, 50, 200 * alpha);
         textAlign(CENTER);
@@ -1980,7 +2207,7 @@ function drawSolarSystemView(levelIndex) {
     const label = function (px) { textSize(px / s); };
 
     if (levelIndex === 4 || levelIndex === 5) {
-        stroke(255, 255, 255, 20 * alpha);
+        stroke(165, 205, 255, 26 * alpha);
         strokeWeight(0.5);
         noFill();
         for (let body of solarSystemBodies) {
@@ -1990,11 +2217,7 @@ function drawSolarSystemView(levelIndex) {
             }
         }
 
-        noStroke();
-        for (let r = 80; r > 0; r -= 4) {
-            fill(255, 200, 50, map(r, 0, 80, 15, 0) * alpha);
-            ellipse(0, 0, r, r);
-        }
+        drawGlow(glowSprites.sun, 0, 0, 210, 0.75 * alpha);
 
         for (let i = 0; i < solarSystemBodies.length; i++) {
             let body = solarSystemBodies[i];
@@ -2006,11 +2229,8 @@ function drawSolarSystemView(levelIndex) {
             noStroke();
             ellipse(px, py, body.size, body.size);
 
-            if (body.glow) {
-                for (let r = body.size * 3; r > 0; r -= 2) {
-                    fill(body.glow[0], body.glow[1], body.glow[2], map(r, 0, body.size * 3, 10, 0) * alpha);
-                    ellipse(px, py, r, r);
-                }
+            if (body.glow && body.dist > 0) {
+                drawGlow(glowSprites.blue, px, py, body.size * 7.5, 0.5 * alpha);
             }
 
             if (body.ring) {
@@ -2032,26 +2252,20 @@ function drawSolarSystemView(levelIndex) {
     } else if (levelIndex === 6) {
         let earthBody = solarSystemBodies[3];
         let orbitSize = earthBody.dist * 2;
-        stroke(255, 255, 255, 28 * alpha);
+        stroke(165, 205, 255, 34 * alpha);
         strokeWeight(0.6);
         noFill();
         ellipse(0, 0, orbitSize, orbitSize);
 
-        noStroke();
-        for (let r = 72; r > 0; r -= 4) {
-            fill(255, 200, 50, map(r, 0, 72, 14, 0) * alpha);
-            ellipse(0, 0, r, r);
-        }
+        drawGlow(glowSprites.sun, 0, 0, 195, 0.7 * alpha);
         fill(255, 200, 50, 255 * alpha);
+        noStroke();
         ellipse(0, 0, 26, 26);
 
         let ang = frameCount2 * 0.003 + 1.1;
         let ex = cos(ang) * earthBody.dist;
         let ey = sin(ang) * earthBody.dist;
-        for (let r = earthBody.size * 3; r > 0; r -= 2) {
-            fill(earthBody.glow[0], earthBody.glow[1], earthBody.glow[2], map(r, 0, earthBody.size * 3, 12, 0) * alpha);
-            ellipse(ex, ey, r, r);
-        }
+        drawGlow(glowSprites.blue, ex, ey, earthBody.size * 7.5, 0.5 * alpha);
         fill(earthBody.color[0], earthBody.color[1], earthBody.color[2], 255 * alpha);
         ellipse(ex, ey, earthBody.size, earthBody.size);
 
@@ -2074,13 +2288,11 @@ function drawSolarSystemView(levelIndex) {
         strokeWeight(0.55);
         ellipse(0, 0, moonDist * 2, moonDist * 2 * 0.9);
 
+        drawGlow(glowSprites.blue, 0, 0, 76, 0.5 * alpha);
+        drawGlow(glowSprites.sun, 108, 18, 56, 0.45 * alpha);
         fill(50, 130, 230, 255 * alpha);
         noStroke();
         ellipse(0, 0, 22, 22);
-        for (let r = 28; r > 0; r -= 2) {
-            fill(100, 180, 255, map(r, 0, 28, 8, 0) * alpha);
-            ellipse(0, 0, r, r);
-        }
 
         fill(210, 210, 220, 255 * alpha);
         ellipse(mx, my, 9, 9);
@@ -2237,6 +2449,9 @@ function drawEarthView(levelIndex) {
 
     let earthR = min(width, height) * 0.35;
 
+    // Atmospheric halo behind the sphere (pre-rendered sprite; the ocean disc covers its center)
+    drawGlow(glowSprites.blue, 0, 0, earthR * 3.1, 0.5 * alpha);
+
     // Earth sphere
     // Ocean
     noStroke();
@@ -2262,6 +2477,21 @@ function drawEarthView(levelIndex) {
         drawEarthFallbackContinents(earthR, alpha, rotation, levelIndex);
     }
 
+    // Sphere shading: a soft terminator gradient clipped to the disc gives the ball its 3D feel
+    push();
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.arc(0, 0, earthR - 4, 0, Math.PI * 2);
+    drawingContext.clip();
+    const shadeGrad = drawingContext.createLinearGradient(-earthR * 0.7, -earthR * 0.7, earthR * 0.8, earthR * 0.8);
+    shadeGrad.addColorStop(0, `rgba(255,255,240,${0.10 * alpha})`);
+    shadeGrad.addColorStop(0.45, 'rgba(0,0,0,0)');
+    shadeGrad.addColorStop(1, `rgba(3,6,26,${0.42 * alpha})`);
+    drawingContext.fillStyle = shadeGrad;
+    drawingContext.fillRect(-earthR, -earthR, earthR * 2, earthR * 2);
+    drawingContext.restore();
+    pop();
+
     noFill();
     stroke(8, 18, 48, 70 * alpha);
     strokeWeight(2.5);
@@ -2273,7 +2503,10 @@ function drawEarthView(levelIndex) {
         let cloudR = earthR * (0.3 + i * 0.08);
         let cx = cos(cloudAngle) * cloudR;
         let cy = sin(cloudAngle) * cloudR * 0.5;
-        fill(255, 255, 255, 25 * alpha);
+        noStroke();
+        fill(255, 255, 255, 10 * alpha);
+        ellipse(cx, cy, (40 + i * 10) * 1.45, (15 + i * 3) * 1.5);
+        fill(255, 255, 255, 26 * alpha);
         ellipse(cx, cy, 40 + i * 10, 15 + i * 3);
     }
 
@@ -2282,6 +2515,8 @@ function drawEarthView(levelIndex) {
         let markerX = 0.15 * earthR * 1.6;
         let markerY = -0.15 * earthR * 1.6;
         let pulse = sin(frameCount2 * 0.05) * 0.3 + 0.7;
+
+        drawGlow(glowSprites.rose, markerX, markerY, 52, 0.4 * alpha * pulse);
 
         // Ping effect
         noFill();
@@ -2345,6 +2580,9 @@ function drawCityView(levelIndex) {
     for (let y = -300; y <= 300; y += 30) {
         line(-400, y, 400, y);
     }
+
+    // Warm ambient glow pooled over the city
+    drawGlow(glowSprites.warm, 0, 20, 780, 0.15 * alpha);
 
     // City lights
     noStroke();
@@ -2433,6 +2671,7 @@ function drawYouMarker(levelIndex) {
 
     // Pulsing rings
     let pulse = sin(frameCount2 * 0.03) * 0.3 + 0.7;
+    drawGlow(glowSprites.cyan, 0, 0, 140, 0.32 * alpha * pulse);
     noFill();
     for (let i = 0; i < 3; i++) {
         let ringSize = 30 + i * 25 + sin(frameCount2 * 0.02 + i) * 10;
